@@ -253,7 +253,7 @@ fun RegisterScreen(
 
                         Spacer(Modifier.height(20.dp))
 
-                        // Botón SOLO si todo ok y no está cargando
+                        // Botón SOLO si esta bien
                         Button(
                             onClick = {
                                 triedSubmit = true

@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
                             CustomizeCoffinScreen(
                                 onBack = { navController.popBackStack() },
                                 onSave = { config ->
-                                    // TODO: Guarda en Room o pásalo al carrito
+                                    //
                                     // y si quieres, navega al catálogo o a un detalle:
                                     // navController.navigate("catalog")
                                 }
