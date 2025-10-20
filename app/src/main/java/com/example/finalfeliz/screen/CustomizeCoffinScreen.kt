@@ -41,7 +41,7 @@ fun CustomizeCoffinScreen(
     var paddedInterior by remember { mutableStateOf(true) }
 
     // ----------- Cálculo de precio -----------
-    val basePrice = 1200.0
+    val basePrice = 500.000
     val materialFactor = when (material) {
         MaterialOption.Nogal -> 1.00
         MaterialOption.Roble -> 1.10
@@ -194,7 +194,7 @@ fun CustomizeCoffinScreen(
                 SectionCard(title = "Grabado (opcional)") {
                     OutlinedTextField(
                         value = engraving,
-                        onValueChange = { engraving = it.take(40) }, // límite 40 caracteres
+                        onValueChange = { engraving = it.take(40) }, // 40 caracteres max
                         placeholder = { Text("Ej: En memoria de...") },
                         singleLine = true,
                         supportingText = { Text("${engraving.length}/40") },
