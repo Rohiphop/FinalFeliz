@@ -1,21 +1,15 @@
 package com.example.finalfeliz.screen
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -27,17 +21,20 @@ import com.example.finalfeliz.R
 import com.example.finalfeliz.validation.isValidEmail
 import com.example.finalfeliz.viewmodel.UserVMFactory
 import com.example.finalfeliz.viewmodel.UserViewModel
-import kotlinx.coroutines.delay
+import com.example.finalfeliz.viewmodel.UserEvent
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onAdminLogin: () -> Unit,
     onBackToWelcome: () -> Unit
 ) {
     val context = LocalContext.current
     val vm: UserViewModel = viewModel(factory = UserVMFactory(context.applicationContext))
     val state by vm.state.collectAsState()
+    val scope = rememberCoroutineScope()
 
     var email by remember { mutableStateOf("") }
     var emailDirty by remember { mutableStateOf(false) }
@@ -49,96 +46,29 @@ fun LoginScreen(
     val passOk = password.isNotBlank()
     val canSubmit = emailOk && passOk && !state.loading
 
-    // Shake + limpieza
-    val scope = rememberCoroutineScope()
-    var shakeTrigger by remember { mutableStateOf(0) }
-    val shake = remember { Animatable(0f) }
-
-    LaunchedEffect(shakeTrigger) {
-        if (shakeTrigger > 0) {
-            shake.snapTo(0f)
-            shake.animateTo(
-                targetValue = 0f,
-                animationSpec = keyframes {
-                    durationMillis = 500
-                    -12f at 50; 10f at 100; -8f at 150; 6f at 200; -4f at 250; 2f at 300; 0f at 500
+    // Escuchar eventos del ViewModel (éxito login o error)
+    LaunchedEffect(Unit) {
+        vm.events.collect { ev ->
+            when (ev) {
+                is UserEvent.LoginSuccess -> {
+                    if (state.isAdmin) {
+                        onAdminLogin()
+                    } else {
+                        onLoginSuccess()
+                    }
                 }
-            )
-        }
-    }
 
-    fun shouldShow(dirty: Boolean) = dirty || tried
-
-    // Control explícito del mensaje/estado de error global de auth
-    var authErrorShown by remember { mutableStateOf(false) }
-    var resetColors by remember { mutableStateOf(false) }
-
-    // Reacción al resultado del login
-    LaunchedEffect(state.loading, state.error, tried) {
-        if (tried && !state.loading) {
-            if (state.error == null && emailOk && passOk) {
-                // éxito
-                tried = false
-                onLoginSuccess()
-            } else if (state.error != null) {
-                // ERROR: mostrar cruces y mensaje en ambos campos
-                authErrorShown = true
-                scope.launch {
-                    shakeTrigger++
-                    delay(500)
-                    // limpiar y quitar mensaje
-                    email = ""
-                    password = ""
-                    emailDirty = false
-                    passDirty = false
-                    tried = false
-                    resetColors = true
-                    authErrorShown = false
-                    delay(600)
-                    resetColors = false
+                is UserEvent.ShowMessage -> {
+                    // puedes mostrar un snackbar si quieres
                 }
+
+                else -> Unit
             }
         }
     }
 
-    // Helpers visuales (manejan error global + reset)
-    fun isFieldError(valid: Boolean, show: Boolean, global: Boolean, reset: Boolean): Boolean {
-        if (reset) return false
-        if (global) return true              // fuerza rojo por error de auth
-        return show && !valid
-    }
-
-    @Composable
-    fun fieldColors(valid: Boolean, show: Boolean, global: Boolean, reset: Boolean) =
-        OutlinedTextFieldDefaults.colors(
-            focusedBorderColor   = when {
-                reset -> MaterialTheme.colorScheme.primary
-                global -> MaterialTheme.colorScheme.error
-                valid  -> Color(0xFF2E7D32)
-                show   -> MaterialTheme.colorScheme.error
-                else   -> MaterialTheme.colorScheme.primary
-            },
-            unfocusedBorderColor = when {
-                reset -> MaterialTheme.colorScheme.outline
-                global -> MaterialTheme.colorScheme.error
-                valid  -> Color(0xFF2E7D32)
-                show   -> MaterialTheme.colorScheme.error
-                else   -> MaterialTheme.colorScheme.outline
-            },
-            cursorColor = MaterialTheme.colorScheme.primary
-        )
-
-    @Composable
-    fun trailingIcon(valid: Boolean, show: Boolean, global: Boolean, reset: Boolean) {
-        if (reset) return
-        when {
-            global -> Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
-            show && valid -> Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
-            show && !valid -> Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
-        }
-    }
-
     Box(Modifier.fillMaxSize()) {
+        // Fondo elegante
         Image(
             painter = painterResource(id = R.drawable.fondo_cementerio),
             contentDescription = null,
@@ -155,13 +85,12 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Inicio de Sesión", fontSize = 26.sp, color = Color.White)
+
             Spacer(Modifier.height(24.dp))
 
             ElevatedCard(
                 shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .graphicsLayer { translationX = shake.value }
+                modifier = Modifier.fillMaxWidth(0.92f)
             ) {
                 Column(
                     modifier = Modifier
@@ -170,71 +99,57 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // EMAIL
-                    val showEmail = shouldShow(emailDirty)
-                    val emailIsError = isFieldError(emailOk, showEmail, authErrorShown, resetColors)
-
                     OutlinedTextField(
                         value = email,
-                        onValueChange = {
-                            email = it
-                            if (!emailDirty) emailDirty = true
-                            resetColors = false
-                            // al tipear se apaga el mensaje global
-                            authErrorShown = false
-                        },
+                        onValueChange = { email = it; if (!emailDirty) emailDirty = true },
                         label = { Text("Correo electrónico") },
                         singleLine = true,
-                        isError = emailIsError,
-                        trailingIcon = { trailingIcon(emailOk, showEmail, authErrorShown, resetColors) },
-                        supportingText = {
-                            when {
-                                authErrorShown && !resetColors ->
-                                    Text("Correo o contraseña incorrectas", color = MaterialTheme.colorScheme.error)
-                                showEmail && !emailOk && !resetColors ->
-                                    Text("Correo inválido (ej: nombre@dominio.com)")
-                            }
-                        },
-                        colors = fieldColors(emailOk, showEmail, authErrorShown, resetColors),
+                        isError = tried && state.error != null,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (emailOk) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = if (emailOk) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     Spacer(Modifier.height(12.dp))
 
                     // PASSWORD
-                    val showPass = shouldShow(passDirty)
-                    val passIsError = isFieldError(passOk, showPass, authErrorShown, resetColors)
-
                     OutlinedTextField(
                         value = password,
-                        onValueChange = {
-                            password = it
-                            if (!passDirty) passDirty = true
-                            resetColors = false
-                            authErrorShown = false
-                        },
+                        onValueChange = { password = it; if (!passDirty) passDirty = true },
                         label = { Text("Contraseña") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        isError = passIsError,
-                        trailingIcon = { trailingIcon(passOk, showPass, authErrorShown, resetColors) },
-                        supportingText = {
-                            when {
-                                authErrorShown && !resetColors ->
-                                    Text("Correo o contraseña incorrectas", color = MaterialTheme.colorScheme.error)
-                                showPass && !passOk && !resetColors ->
-                                    Text("Ingresa tu contraseña, por favor")
-                            }
-                        },
-                        colors = fieldColors(passOk, showPass, authErrorShown, resetColors),
+                        isError = tried && state.error != null,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (passOk) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = if (passOk) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outline,
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    if (state.error != null && tried) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = state.error ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp
+                        )
+                    }
 
                     Spacer(Modifier.height(20.dp))
 
                     Button(
                         onClick = {
                             tried = true
-                            if (emailOk && passOk) vm.login(email.trim(), password)
+                            scope.launch {
+                                if (emailOk && passOk) {
+                                    vm.login(email.trim(), password)
+                                }
+                            }
                         },
                         enabled = canSubmit,
                         modifier = Modifier.fillMaxWidth()
@@ -253,7 +168,9 @@ fun LoginScreen(
                     }
 
                     Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onBackToWelcome) { Text("Volver a inicio") }
+                    TextButton(onClick = onBackToWelcome) {
+                        Text("Volver a inicio")
+                    }
                 }
             }
         }

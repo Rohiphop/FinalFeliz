@@ -2,6 +2,8 @@ package com.example.finalfeliz.screen
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,9 +22,11 @@ import com.example.finalfeliz.R
 @Composable
 fun HomeScreen(
     userName: String,
+    isAdmin: Boolean = false,               // 👑 Nuevo parámetro
     onLogoutClick: () -> Unit,
     onGoCatalog: () -> Unit,
-    onGoCustomize: () -> Unit
+    onGoCustomize: () -> Unit,
+    onGoAdmin: () -> Unit = {}              // 👑 Acción hacia AdminScreen
 ) {
     Scaffold(
         topBar = {
@@ -106,6 +110,34 @@ fun HomeScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF064C01))
                 ) {
                     Text("Personalizar Ataúd", color = Color.White, fontSize = 18.sp)
+                }
+
+                // 👑 SOLO PARA ADMINS
+                if (isAdmin) {
+                    Spacer(modifier = Modifier.height(30.dp))
+                    OutlinedButton(
+                        onClick = onGoAdmin,
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(50.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            width = 1.5.dp,
+                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(Color(0xFFB8860B), Color(0xFFE8B923))
+                            )
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AdminPanelSettings,
+                            contentDescription = null,
+                            tint = Color(0xFFE8B923)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Panel de Administración", color = Color(0xFFE8B923))
+                    }
                 }
             }
         }

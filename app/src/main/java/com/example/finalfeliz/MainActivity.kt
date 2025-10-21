@@ -11,12 +11,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.finalfeliz.screen.CatalogScreen
-import com.example.finalfeliz.screen.CustomizeCoffinScreen
-import com.example.finalfeliz.screen.HomeScreen
-import com.example.finalfeliz.screen.LoginScreen
-import com.example.finalfeliz.screen.RegisterScreen
-import com.example.finalfeliz.screen.WelcomeScreen
+import com.example.finalfeliz.screen.*
 import com.example.finalfeliz.ui.theme.FinalFelizTheme
 import com.example.finalfeliz.viewmodel.UserVMFactory
 import com.example.finalfeliz.viewmodel.UserViewModel
@@ -29,6 +24,7 @@ class MainActivity : ComponentActivity() {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
                     val userVm: UserViewModel = viewModel(factory = UserVMFactory(applicationContext))
+                    val state by userVm.state.collectAsState()
 
                     NavHost(navController = navController, startDestination = "welcome") {
 
@@ -40,7 +36,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 🔐 Login → Home
+                        // 🔐 Login → Home o Admin
                         composable("login") {
                             LoginScreen(
                                 onLoginSuccess = {
@@ -48,27 +44,38 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("welcome") { inclusive = true }
                                     }
                                 },
+                                onAdminLogin = {
+                                    navController.navigate("admin") {
+                                        popUpTo("welcome") { inclusive = true }
+                                    }
+                                },
                                 onBackToWelcome = { navController.popBackStack() }
                             )
                         }
 
-                        // 📝 Registro → Home
+                        // 📝 Registro → Home o Admin
                         composable("register") {
                             RegisterScreen(
                                 onBack = { navController.popBackStack() },
                                 onRegisterSuccess = {
-                                    navController.navigate("home") {
-                                        popUpTo("welcome") { inclusive = true }
+                                    if (state.isAdmin) {
+                                        navController.navigate("admin") {
+                                            popUpTo("welcome") { inclusive = true }
+                                        }
+                                    } else {
+                                        navController.navigate("home") {
+                                            popUpTo("welcome") { inclusive = true }
+                                        }
                                     }
                                 }
                             )
                         }
 
-                        // 🏠 Home → Catálogo
+                        // 🏠 Home (usuarios normales)
                         composable("home") {
-                            val state by userVm.state.collectAsState()
                             HomeScreen(
                                 userName = state.userName ?: "Usuario",
+                                isAdmin = state.isAdmin, // 👑 Nuevo
                                 onLogoutClick = {
                                     userVm.logout()
                                     navController.navigate("welcome") {
@@ -76,23 +83,35 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onGoCatalog = { navController.navigate("catalog") },
-                                onGoCustomize = { navController.navigate("customize") }
+                                onGoCustomize = { navController.navigate("customize") },
+                                onGoAdmin = { navController.navigate("admin") } // 👑 Nuevo
                             )
                         }
-                        composable("customize") {
-                            CustomizeCoffinScreen(
+
+                        // 🧰 Panel de Administración
+                        composable("admin") {
+                            AdminScreen(
+                                vm = userVm,
                                 onBack = { navController.popBackStack() },
-                                onSave = { config ->
-                                    //
-                                    // y si quieres, navega al catálogo o a un detalle:
-                                    // navController.navigate("catalog")
+                                onLogout = {
+                                    userVm.logout()
+                                    navController.navigate("welcome") {
+                                        popUpTo("admin") { inclusive = true }
+                                    }
                                 }
                             )
                         }
 
-                        //  Catalogo
+                        // ⚙️ Personalización
+                        composable("customize") {
+                            CustomizeCoffinScreen(
+                                onBack = { navController.popBackStack() },
+                                onSave = { /* acciones posteriores */ }
+                            )
+                        }
+
+                        // 📦 Catálogo
                         composable("catalog") {
-                            val state by userVm.state.collectAsState()
                             CatalogScreen(
                                 userName = state.userName ?: "Usuario",
                                 userEmail = state.userEmail ?: "—",
