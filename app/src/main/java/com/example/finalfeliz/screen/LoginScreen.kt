@@ -222,7 +222,7 @@ fun LoginScreen(
                                 authErrorShown && !resetColors ->
                                     Text("Correo o contraseña incorrectas", color = MaterialTheme.colorScheme.error)
                                 showPass && !passOk && !resetColors ->
-                                    Text("Ingresa tu contraseña")
+                                    Text("Ingresa tu contraseña, por favor")
                             }
                         },
                         colors = fieldColors(passOk, showPass, authErrorShown, resetColors),
