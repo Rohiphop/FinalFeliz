@@ -66,7 +66,7 @@ fun HomeScreen(
             ) {
                 Text(
                     text = "Explora Nuestros Servicios",
-                    fontSize = 28.sp,
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     textAlign = TextAlign.Center
@@ -75,8 +75,9 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "Encuentra diseños sobrios y elegantes,\no personaliza el tuyo con respeto y distinción.",
-                    fontSize = 16.sp,
+                    text = "Encuentra diseños sobrios y elegantes\no personaliza el tuyo con respeto y distinción.",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
                     color = Color(0xFFE0E0E0),
                     textAlign = TextAlign.Center
                 )
