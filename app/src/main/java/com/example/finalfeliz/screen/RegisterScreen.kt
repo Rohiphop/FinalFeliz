@@ -1,5 +1,6 @@
 package com.example.finalfeliz.screen
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,32 +17,29 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finalfeliz.R
 import com.example.finalfeliz.validation.isStrongPassword
 import com.example.finalfeliz.validation.isValidEmail
 import com.example.finalfeliz.validation.isValidName
-import com.example.finalfeliz.viewmodel.UserVMFactory
 import com.example.finalfeliz.viewmodel.UserViewModel
 import kotlinx.coroutines.delay
-import androidx.compose.animation.core.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
+    vm: UserViewModel,                // ← ViewModel INYECTADO desde MainActivity
     onBack: () -> Unit,
     onRegisterSuccess: () -> Unit
 ) {
-    val context = LocalContext.current
-    val vm: UserViewModel = viewModel(factory = UserVMFactory(context.applicationContext))
+    // Estado global de usuario (compartido)
     val state by vm.state.collectAsState()
 
+    // Campos y flags locales del formulario
     var name by remember { mutableStateOf("") }
     var nameDirty by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -52,14 +50,17 @@ fun RegisterScreen(
     var confirmDirty by remember { mutableStateOf(false) }
     var triedSubmit by remember { mutableStateOf(false) }
 
+    // Validaciones
     val nameOk = isValidName(name)
     val emailOk = isValidEmail(email)
     val passOk = isStrongPassword(pass)
     val confirmOk = confirm.isNotBlank() && confirm == pass
     val allOk = nameOk && emailOk && passOk && confirmOk
 
+    // Overlay de “éxito”
     var showSuccess by remember { mutableStateOf(false) }
 
+    // Colores de campos parametrizados por estado
     @Composable
     fun fieldColors(valid: Boolean, show: Boolean) = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = when {
@@ -76,22 +77,23 @@ fun RegisterScreen(
     )
     fun shouldShow(dirty: Boolean) = dirty || triedSubmit
 
-    // Si el registro terminó OK → mostrar overlay de éxito
+    // Al completar registro con éxito: mostrar overlay
     LaunchedEffect(state.loading, state.error, triedSubmit) {
         if (triedSubmit && !state.loading && state.error == null && allOk) {
             triedSubmit = false
             showSuccess = true
         }
     }
-    // Tras mostrar overlay unos ms → navegar
+    // Tras el overlay, navegar
     LaunchedEffect(showSuccess) {
         if (showSuccess) {
             delay(1200)
-            onRegisterSuccess()   // MainActivity te lleva a "home"
+            onRegisterSuccess()
         }
     }
 
     Box(Modifier.fillMaxSize()) {
+        // Fondo
         Image(
             painter = painterResource(id = R.drawable.fondo_cementerio),
             contentDescription = null,
@@ -100,6 +102,7 @@ fun RegisterScreen(
         )
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
 
+        // UI principal
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -140,6 +143,7 @@ fun RegisterScreen(
                             .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Nombre
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it; if (!nameDirty) nameDirty = true },
@@ -148,12 +152,15 @@ fun RegisterScreen(
                             isError = shouldShow(nameDirty) && !nameOk,
                             trailingIcon = {
                                 if (shouldShow(nameDirty)) {
-                                    if (nameOk) Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
-                                    else Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
+                                    if (nameOk)
+                                        Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
+                                    else
+                                        Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
                                 }
                             },
                             supportingText = {
-                                if (shouldShow(nameDirty) && !nameOk) Text("Solo letras y espacios (mínimo 2).")
+                                if (shouldShow(nameDirty) && !nameOk)
+                                    Text("Solo letras y espacios (mínimo 2).")
                             },
                             colors = fieldColors(nameOk, shouldShow(nameDirty)),
                             modifier = Modifier.fillMaxWidth()
@@ -161,6 +168,7 @@ fun RegisterScreen(
 
                         Spacer(Modifier.height(12.dp))
 
+                        // Email
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it; if (!emailDirty) emailDirty = true },
@@ -169,8 +177,10 @@ fun RegisterScreen(
                             isError = shouldShow(emailDirty) && !emailOk,
                             trailingIcon = {
                                 if (shouldShow(emailDirty)) {
-                                    if (emailOk) Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
-                                    else Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
+                                    if (emailOk)
+                                        Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
+                                    else
+                                        Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
                                 }
                             },
                             supportingText = {
@@ -183,6 +193,7 @@ fun RegisterScreen(
 
                         Spacer(Modifier.height(12.dp))
 
+                        // Contraseña
                         OutlinedTextField(
                             value = pass,
                             onValueChange = { pass = it; if (!passDirty) passDirty = true },
@@ -192,8 +203,10 @@ fun RegisterScreen(
                             isError = shouldShow(passDirty) && !passOk,
                             trailingIcon = {
                                 if (shouldShow(passDirty)) {
-                                    if (passOk) Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
-                                    else Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
+                                    if (passOk)
+                                        Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
+                                    else
+                                        Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
                                 }
                             },
                             supportingText = {
@@ -206,6 +219,7 @@ fun RegisterScreen(
 
                         Spacer(Modifier.height(12.dp))
 
+                        // Confirmación
                         OutlinedTextField(
                             value = confirm,
                             onValueChange = { confirm = it; if (!confirmDirty) confirmDirty = true },
@@ -215,12 +229,15 @@ fun RegisterScreen(
                             isError = shouldShow(confirmDirty) && !confirmOk,
                             trailingIcon = {
                                 if (shouldShow(confirmDirty)) {
-                                    if (confirmOk) Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
-                                    else Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
+                                    if (confirmOk)
+                                        Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
+                                    else
+                                        Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error)
                                 }
                             },
                             supportingText = {
-                                if (shouldShow(confirmDirty) && !confirmOk) Text("Debe coincidir con la contraseña.")
+                                if (shouldShow(confirmDirty) && !confirmOk)
+                                    Text("Debe coincidir con la contraseña.")
                             },
                             colors = fieldColors(confirmOk, shouldShow(confirmDirty)),
                             modifier = Modifier.fillMaxWidth()
@@ -228,6 +245,7 @@ fun RegisterScreen(
 
                         Spacer(Modifier.height(20.dp))
 
+                        // Botón registrar
                         Button(
                             onClick = {
                                 triedSubmit = true
@@ -249,6 +267,7 @@ fun RegisterScreen(
                             }
                         }
 
+                        // Error general
                         state.error?.let {
                             Spacer(Modifier.height(10.dp))
                             Text(
@@ -263,7 +282,7 @@ fun RegisterScreen(
             }
         }
 
-        // Overlay de ÉXITO con animación
+        // Overlay de éxito
         if (showSuccess) {
             SuccessOverlay()
         }
@@ -279,7 +298,7 @@ private fun SuccessOverlay() {
         label = "overlayAlpha"
     )
 
-    // Pop-in (0.8 → 1.0) - pulso suave ANIMACIONES
+    // Pop-in + pulso suave del ícono
     val pop = remember { Animatable(0.8f) }
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(stiffness = Spring.StiffnessLow)) }
 

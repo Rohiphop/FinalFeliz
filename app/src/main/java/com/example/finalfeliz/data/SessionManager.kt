@@ -1,26 +1,45 @@
 package com.example.finalfeliz.data
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-private val Context.userPrefsDataStore by preferencesDataStore("user_prefs")
+/**
+ * Gestiona la sesión actual del usuario dentro de la aplicación.
+ * Guarda el ID del usuario autenticado en SharedPreferences
+ * y lo expone mediante un Flow para que otros componentes
+ * (por ejemplo, ViewModels) reaccionen a los cambios de sesión.
+ */
+class SessionManager(context: Context) {
 
-class SessionManager(private val context: Context) {
+    private val prefs = context.getSharedPreferences("finalfeliz_session", Context.MODE_PRIVATE)
 
-    private val KEY_USER_ID = longPreferencesKey("current_user_id")
+    // Flujo observable del ID del usuario actual
+    private val _currentUserIdFlow =
+        MutableStateFlow<Long?>(prefs.getLong("user_id", -1).takeIf { it != -1L })
+    val currentUserIdFlow = _currentUserIdFlow.asStateFlow()
 
-    val currentUserIdFlow: Flow<Long?> =
-        context.userPrefsDataStore.data.map { prefs -> prefs[KEY_USER_ID] }
 
-    suspend fun setCurrentUserId(id: Long) {
-        context.userPrefsDataStore.edit { it[KEY_USER_ID] = id }
+     //Guarda el ID del usuario actual y actualiza el flujo en memoria.
+
+    fun setCurrentUserId(id: Long) {
+        prefs.edit().putLong("user_id", id).apply()
+        _currentUserIdFlow.value = id
     }
 
-    suspend fun clearCurrentUserId() {
-        context.userPrefsDataStore.edit { it.remove(KEY_USER_ID) }
+
+     //Elimina el ID del usuario actual (logout).
+
+    fun clearCurrentUserId() {
+        prefs.edit().remove("user_id").apply()
+        _currentUserIdFlow.value = null
+    }
+
+
+     //Devuelve el ID actual del usuario, o null si no hay sesión activa.
+
+    fun getCurrentUserId(): Long? {
+        val id = prefs.getLong("user_id", -1)
+        return if (id == -1L) null else id
     }
 }

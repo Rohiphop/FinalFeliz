@@ -1,6 +1,5 @@
 package com.example.finalfeliz.screen
 
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -30,29 +29,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finalfeliz.R
+import com.example.finalfeliz.data.Product
+import com.example.finalfeliz.viewmodel.ProductVMFactory
+import com.example.finalfeliz.viewmodel.ProductViewModel
 import kotlinx.coroutines.delay
-
-data class CoffinProduct(
-    val id: String,
-    val name: String,
-    val material: String,
-    val price: String,
-    @DrawableRes val image: Int? = null
-)
-
-private val sampleCatalog = listOf(
-    CoffinProduct("1", "Clásico Nogal", "Madera maciza", "$500.000", image = R.drawable.madera_maciza),
-    CoffinProduct("2", "Ébano Premium", "Acabado pulido", "$1.200.000", image = R.drawable.pulido),
-    CoffinProduct("3", "Serenidad Blanco", "Lacado mate", "$1.450.000", image = R.drawable.ebano),
-    CoffinProduct("4", "Roble Oscuro", "Textura natural", "$1.890.000", image = R.drawable.natural),
-    CoffinProduct("5", "Negro Granate", "Detalles metálicos", "$2.100.000", image = R.drawable.premium),
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,9 +49,15 @@ fun CatalogScreen(
     userEmail: String,
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onAddToCart: (CoffinProduct) -> Unit = {},
+    onAddToCart: (Product) -> Unit = {},
 ) {
+    // ViewModel de productos (Room)
+    val ctx = LocalContext.current
+    val pvm: ProductViewModel = viewModel(factory = ProductVMFactory(ctx.applicationContext))
+    val pState by pvm.state.collectAsState()
+
     Box(Modifier.fillMaxSize()) {
+        // Fondo
         Image(
             painter = painterResource(id = R.drawable.fondo_cementerio),
             contentDescription = null,
@@ -100,7 +94,7 @@ fun CatalogScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .fillMaxSize()
             ) {
-                // Usuario
+                // Tarjeta usuario
                 ElevatedCard(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -154,7 +148,17 @@ fun CatalogScreen(
                 )
                 Spacer(Modifier.height(12.dp))
 
-                // Grid
+                // Loading / error
+                if (pState.loading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                }
+                pState.error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                // Grid de productos desde Room
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -162,7 +166,7 @@ fun CatalogScreen(
                     contentPadding = PaddingValues(bottom = 16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(sampleCatalog, key = { it.id }) { product ->
+                    items(pState.products, key = { it.id }) { product ->
                         CatalogItemCard(
                             product = product,
                             onAdd = { onAddToCart(product) }
@@ -176,7 +180,7 @@ fun CatalogScreen(
 
 @Composable
 private fun CatalogItemCard(
-    product: CoffinProduct,
+    product: Product,
     onAdd: () -> Unit
 ) {
     ElevatedCard(
@@ -191,7 +195,7 @@ private fun CatalogItemCard(
                     .height(140.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                product.image?.let {
+                product.imageRes?.let {
                     Image(
                         painter = painterResource(id = it),
                         contentDescription = product.name,
@@ -234,16 +238,16 @@ private fun CatalogItemCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    val priceLabel = "$ ${"%,d".format(product.priceClp)}"
                     Text(
-                        product.price,
+                        priceLabel,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    // ---- Botón con animación de color y contenido ----
+                    // Botón con animación (verde al agregar)
                     var added by rememberSaveable(product.id) { mutableStateOf(false) }
 
-                    // Colores elegantes
                     val wine = Color(0xFF0E5A22)
                     val success = Color(0xFF2FD03B)
 
@@ -254,7 +258,7 @@ private fun CatalogItemCard(
                     )
 
                     val iconAlpha by animateFloatAsState(
-                        targetValue = if (added) 1f else 1f, // (dejamos fijo; puedes animar si quieres)
+                        targetValue = 1f,
                         label = "iconAlpha"
                     )
 
@@ -283,7 +287,6 @@ private fun CatalogItemCard(
                         )
                         Spacer(Modifier.width(8.dp))
 
-                        // Vuelve al estado normal tras 1.2s
                         if (added) {
                             LaunchedEffect(Unit) {
                                 delay(1200)

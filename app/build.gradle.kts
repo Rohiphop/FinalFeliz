@@ -52,6 +52,8 @@ dependencies {
 
 
     implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.material3)
 
     val room = "2.6.1"
     implementation("androidx.room:room-runtime:$room")
@@ -71,5 +73,7 @@ dependencies {
     debugImplementation("com.guolindev.glance:glance:1.1.0")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    implementation("androidx.compose.foundation:foundation")
 
 }

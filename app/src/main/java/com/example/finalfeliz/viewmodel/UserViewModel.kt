@@ -11,69 +11,91 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
-// ----------- Eventos one-shot para la UI -----------
+// -----------------------------------------------------------
+// Eventos one-shot: mensajes y resultados únicos hacia la UI
+// -----------------------------------------------------------
 sealed interface UserEvent {
     object LoginSuccess : UserEvent
     data class ShowMessage(val msg: String) : UserEvent
 }
 
+// -----------------------------------------------------------
+// Estado principal que refleja la información del usuario
+// -----------------------------------------------------------
 data class UserState(
     val loading: Boolean = false,
     val error: String? = null,
     val userName: String? = null,
     val userEmail: String? = null,
-    // --- Admin ---
-    val isAdmin: Boolean = false,
-    val users: List<User> = emptyList(),
-    val userCount: Int = 0
+    val isAdmin: Boolean = false,          // indica si el usuario tiene privilegios
+    val users: List<User> = emptyList(),   // lista visible solo para admins
+    val userCount: Int = 0                 // conteo total de usuarios
 )
 
+// -----------------------------------------------------------
+// ViewModel que maneja autenticación y administración de usuarios
+// -----------------------------------------------------------
 class UserViewModel(
     private val repository: UserRepository
 ) : ViewModel() {
 
+    // Estado expuesto a la UI
     private val _state = MutableStateFlow(UserState())
     val state: StateFlow<UserState> = _state
 
-    // Bus de eventos (one-shot)
+    // Canal para enviar eventos de una sola vez (no persistentes)
     private val _events = MutableSharedFlow<UserEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<UserEvent> = _events
 
     init {
-        // Observa al usuario actual (se actualiza con login/register/logout)
+        // Observa al usuario actual de forma reactiva (Room + Flow)
+        // Esto actualiza la UI automáticamente cuando cambia el usuario
         viewModelScope.launch {
-            repository.currentUserFlow.collectLatest { u ->
+            repository.currentUserFlow.collectLatest { user ->
                 _state.value = _state.value.copy(
-                    userName = u?.name,
-                    userEmail = u?.email,
-                    isAdmin = (u?.isAdmin == true)
+                    userName = user?.name,
+                    userEmail = user?.email,
+                    isAdmin = (user?.isAdmin == true)
                 )
             }
         }
     }
 
-    // -------------------- Auth --------------------
-
+    // -----------------------------------------------------------
+    // Registro de nuevos usuarios
+    // -----------------------------------------------------------
     fun register(name: String, email: String, password: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             val result = repository.register(name, email, password)
+
             _state.value = if (result.isSuccess) {
-                _state.value.copy(loading = false) // datos llegarán por currentUserFlow
+                // Si el registro fue exitoso, la sesión se actualiza por currentUserFlow
+                _state.value.copy(loading = false)
             } else {
-                _state.value.copy(loading = false, error = result.exceptionOrNull()?.message)
+                // Si ocurrió un error, lo reflejamos en el estado
+                _state.value.copy(
+                    loading = false,
+                    error = result.exceptionOrNull()?.message
+                )
             }
         }
     }
 
+    // -----------------------------------------------------------
+    // Inicio de sesión
+    // -----------------------------------------------------------
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             val result = repository.login(email, password)
+
             if (result.isSuccess) {
+                // Éxito: actualiza el estado y emite evento a la UI
                 _state.value = _state.value.copy(loading = false, error = null)
                 _events.tryEmit(UserEvent.LoginSuccess)
             } else {
+                // Falla: muestra mensaje de error
                 _state.value = _state.value.copy(
                     loading = false,
                     error = "Correo o contraseña incorrectas"
@@ -83,16 +105,21 @@ class UserViewModel(
         }
     }
 
+    // -----------------------------------------------------------
+    // Cierre de sesión
+    // -----------------------------------------------------------
     fun logout() {
         viewModelScope.launch {
-            repository.logout()                 // limpia sesión
-            _state.value = UserState()          // limpia estado UI
+            repository.logout()                // limpia la sesión actual
+            _state.value = UserState()         // reinicia el estado en la UI
         }
     }
 
-    // -------------------- Admin --------------------
+    // -----------------------------------------------------------
+    // Funcionalidades exclusivas para administradores
+    // -----------------------------------------------------------
 
-    /** Carga el conteo y el listado de usuarios si el actual es admin. */
+    /** Carga el conteo y la lista de usuarios, solo si el actual es administrador. */
     fun loadAdminData() {
         viewModelScope.launch {
             if (_state.value.isAdmin) {
@@ -106,12 +133,12 @@ class UserViewModel(
         }
     }
 
-    /** Asigna o quita admin a un usuario. Refresca la lista luego. */
+    /** Cambia el rol de un usuario (asignar o quitar privilegios de admin). */
     fun setAdmin(userId: Long, admin: Boolean) {
         viewModelScope.launch {
             if (_state.value.isAdmin) {
                 repository.setAdmin(userId, admin)
-                loadAdminData()
+                loadAdminData() // refresca la lista tras el cambio
             }
         }
     }
