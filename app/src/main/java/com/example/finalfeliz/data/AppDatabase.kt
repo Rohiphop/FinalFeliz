@@ -42,7 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
                                         email = "admin@finalfeliz.cl",
                                         password = "Admin123."
                                     )
-                                    // 2) Precarga productos si está vacío
+                                    // 2) Precarga productos si está vacio
                                     val pdao = inst.productDao()
                                     if (pdao.count() == 0) {
                                         pdao.insert(
