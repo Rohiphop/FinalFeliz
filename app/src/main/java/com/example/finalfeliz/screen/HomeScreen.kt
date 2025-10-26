@@ -3,12 +3,14 @@ package com.example.finalfeliz.screen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -22,11 +24,12 @@ import com.example.finalfeliz.R
 @Composable
 fun HomeScreen(
     userName: String,
-    isAdmin: Boolean = false,         // Indica si el usuario actual es administrador
-    onLogoutClick: () -> Unit,        // Acción al cerrar sesión
-    onGoCatalog: () -> Unit,          // Navegar al catálogo de productos
-    onGoCustomize: () -> Unit,        // Navegar a la personalización de ataúdes
-    onGoAdmin: () -> Unit = {}        // Navegar al panel de administración (solo admins)
+    isAdmin: Boolean = false,
+    onLogoutClick: () -> Unit,
+    onGoCatalog: () -> Unit,
+    onGoCustomize: () -> Unit,
+    onGoAdmin: () -> Unit = {},
+    onGoProfile: () -> Unit = {}     // 👈 navegación al perfil
 ) {
     Scaffold(
         topBar = {
@@ -39,6 +42,27 @@ fun HomeScreen(
                     )
                 },
                 actions = {
+                    //  Botón de PERFIL
+                    Button(
+                        onClick = onGoProfile,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .height(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AccountCircle,
+                            contentDescription = "Perfil",
+                            tint = Color.White
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Perfil", color = Color.White, fontWeight = FontWeight.Medium)
+                    }
+
+                    //  Botón SALIR
                     TextButton(onClick = onLogoutClick) {
                         Text("Salir", color = Color.White)
                     }
@@ -50,13 +74,12 @@ fun HomeScreen(
         }
     ) { innerPadding ->
 
-        // Contenedor principal con fondo e imagen difuminada
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Fondo con efecto blur
+            // Fondo
             Image(
                 painter = painterResource(id = R.drawable.fondo_cementerio2),
                 contentDescription = null,
@@ -66,7 +89,6 @@ fun HomeScreen(
                     .blur(12.dp)
             )
 
-            // Contenido centrado
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -74,8 +96,6 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
-                // Título principal
                 Text(
                     text = "Explora Nuestros \n\n Servicios",
                     fontSize = 30.sp,
@@ -86,18 +106,17 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Subtítulo descriptivo
                 Text(
                     text = "Encuentra diseños sobrios y elegantes\no personaliza el tuyo con respeto y distinción.",
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     color = Color(0xFFE0E0E0),
                     textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Botón para ver el catálogo
+                // Botón Catálogo
                 Button(
                     onClick = onGoCatalog,
                     modifier = Modifier
@@ -107,16 +126,12 @@ fun HomeScreen(
                         containerColor = Color(0xFF015709)
                     )
                 ) {
-                    Text(
-                        "Ver Catálogo",
-                        color = Color.White,
-                        fontSize = 18.sp
-                    )
+                    Text("Ver Catálogo", color = Color.White, fontSize = 18.sp)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Botón para personalizar ataúdes
+                // Botón Personalizar
                 Button(
                     onClick = onGoCustomize,
                     modifier = Modifier
@@ -126,14 +141,9 @@ fun HomeScreen(
                         containerColor = Color(0xFF064C01)
                     )
                 ) {
-                    Text(
-                        "Personalizar Ataúd",
-                        color = Color.White,
-                        fontSize = 18.sp
-                    )
+                    Text("Personalizar Ataúd", color = Color.White, fontSize = 18.sp)
                 }
 
-                // Sección visible solo para administradores
                 if (isAdmin) {
                     Spacer(modifier = Modifier.height(30.dp))
 
@@ -147,7 +157,7 @@ fun HomeScreen(
                         ),
                         border = ButtonDefaults.outlinedButtonBorder.copy(
                             width = 1.5.dp,
-                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            brush = Brush.horizontalGradient(
                                 listOf(Color(0xFFB8860B), Color(0xFFE8B923))
                             )
                         )

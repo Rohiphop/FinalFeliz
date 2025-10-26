@@ -14,37 +14,43 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(user: User): Long
 
+    // Update completo por objeto (no siempre necesario para cambios simples)
     @Update
     suspend fun update(user: User)
 
-    // Busca por email (para login o seed admin)
+    // ---------- Búsquedas ----------
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun findByEmail(email: String): User?
 
-    // Busca por ID como Flow (para observar cambios)
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
     fun observeUser(id: Long): Flow<User?>
 
-    // Retorna cantidad total
-    @Query("SELECT COUNT(*) FROM users")
-    suspend fun getUserCount(): Int
-
-    // Lista todos los usuarios (por ejemplo para admin)
-    @Query("SELECT * FROM users ORDER BY id DESC")
-    suspend fun getAllUsers(): List<User>
-
-    // Busca puntual por ID
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): User?
 
-    // Marca o desmarca un usuario como administrador
+    // ---------- Lecturas para admin / métricas ----------
+    @Query("SELECT COUNT(*) FROM users")
+    suspend fun getUserCount(): Int
+
+    @Query("SELECT * FROM users ORDER BY id DESC")
+    suspend fun getAllUsers(): List<User>
+
+    // ---------- Cambios de rol ----------
     @Query("UPDATE users SET isAdmin = :isAdmin WHERE id = :userId")
     suspend fun setAdmin(userId: Long, isAdmin: Boolean)
 
+    // ---------- Ediciones de perfil ----------
+    /** Actualiza solo el nombre del usuario. */
+    @Query("UPDATE users SET name = :newName WHERE id = :userId")
+    suspend fun updateName(userId: Long, newName: String)
+
+    /** Cambia solo la contraseña del usuario. */
+    @Query("UPDATE users SET password = :newPassword WHERE id = :userId")
+    suspend fun updatePassword(userId: Long, newPassword: String)
+
     /**
-     * ✅ Asegura que exista un usuario admin
-     * Si no existe, lo crea.
-     * Si existe, actualiza su contraseña y flag de admin.
+     * Asegura que exista un usuario admin.
+     * Si no existe, lo crea. Si existe, actualiza su contraseña y lo marca como admin.
      */
     @Transaction
     suspend fun ensureAdminExists(email: String, password: String) {
@@ -54,12 +60,12 @@ interface UserDao {
                 User(
                     name = "Administrador",
                     email = email,
-                    password = password, // plano (demo)
+                    password = password,            // plano (demo)
+                    phone = "+56900000000",         // campo obligatorio agregado
                     isAdmin = true
                 )
             )
         } else {
-            // Si ya existe, asegura que esté marcado como admin y tenga la contraseña correcta
             if (!existing.isAdmin || existing.password != password) {
                 update(existing.copy(isAdmin = true, password = password))
             }

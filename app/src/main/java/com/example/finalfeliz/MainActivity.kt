@@ -15,6 +15,8 @@ import com.example.finalfeliz.screen.*
 import com.example.finalfeliz.ui.theme.FinalFelizTheme
 import com.example.finalfeliz.viewmodel.UserVMFactory
 import com.example.finalfeliz.viewmodel.UserViewModel
+import com.example.finalfeliz.viewmodel.ProductVMFactory
+import com.example.finalfeliz.viewmodel.ProductViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,23 +25,19 @@ class MainActivity : ComponentActivity() {
             FinalFelizTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
 
-                    // Controlador de navegación principal
                     val navController = rememberNavController()
 
-                    // ViewModel compartido entre TODAS las pantallas
+                    // VM compartido de usuario
                     val userVm: UserViewModel = viewModel(factory = UserVMFactory(applicationContext))
                     val state by userVm.state.collectAsState()
 
-                    // Nombre a mostrar en Home:
-                    // - Si es admin => "Admin"
-                    // - Si no, el nombre del usuario o "Usuario" por defecto
+                    // VM compartido de productos (una sola instancia para toda la app)
+                    val productVm: ProductViewModel = viewModel(factory = ProductVMFactory(applicationContext))
+
                     val displayName = if (state.isAdmin) "Admin" else state.userName ?: "Usuario"
 
                     NavHost(navController = navController, startDestination = "welcome") {
 
-                        // ------------------------------------------------------------------
-                        // Bienvenida
-                        // ------------------------------------------------------------------
                         composable("welcome") {
                             WelcomeScreen(
                                 onGoLogin = { navController.navigate("login") },
@@ -47,10 +45,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Login: decide Home o Admin según el usuario autenticado
-                        // - Se inyecta el MISMO UserViewModel compartido
-                        // ------------------------------------------------------------------
                         composable("login") {
                             LoginScreen(
                                 vm = userVm,
@@ -59,8 +53,9 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("welcome") { inclusive = true }
                                     }
                                 },
+                                // ⬇️ Antes llevaba a "admin"; ahora también a "home"
                                 onAdminLogin = {
-                                    navController.navigate("admin") {
+                                    navController.navigate("home") {
                                         popUpTo("welcome") { inclusive = true }
                                     }
                                 },
@@ -68,10 +63,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Registro: tras crear cuenta, decide destino según el tipo de usuario
-                        // - Se inyecta el MISMO UserViewModel compartido
-                        // ------------------------------------------------------------------
+
                         composable("register") {
                             RegisterScreen(
                                 vm = userVm,
@@ -90,13 +82,9 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Home (usuarios normales). Si es admin, verá además el botón
-                        // de acceso al panel de administración.
-                        // ------------------------------------------------------------------
                         composable("home") {
                             HomeScreen(
-                                userName = displayName,          // <-- mostrará "Admin" si corresponde
+                                userName = displayName,
                                 isAdmin = state.isAdmin,
                                 onLogoutClick = {
                                     userVm.logout()
@@ -106,16 +94,15 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onGoCatalog = { navController.navigate("catalog") },
                                 onGoCustomize = { navController.navigate("customize") },
-                                onGoAdmin = { navController.navigate("admin") }
+                                onGoAdmin   = { navController.navigate("admin") },
+                                onGoProfile = { navController.navigate("profile") }
                             )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Panel de administración (solo debería usarse si es admin)
-                        // ------------------------------------------------------------------
                         composable("admin") {
                             AdminScreen(
                                 vm = userVm,
+                                productVm = productVm, // ← pásalo aquí
                                 onBack = { navController.popBackStack() },
                                 onLogout = {
                                     userVm.logout()
@@ -126,9 +113,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Personalización de ataúdes
-                        // ------------------------------------------------------------------
                         composable("customize") {
                             CustomizeCoffinScreen(
                                 onBack = { navController.popBackStack() },
@@ -136,19 +120,17 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Gestión de productos del catálogo (acceso desde Admin)
-                        // ------------------------------------------------------------------
+                        // Gestión de productos: usar el productVm compartido
                         composable("admin_products") {
-                            AdminProductsScreen(onBack = { navController.popBackStack() })
+                            AdminProductsScreen(
+                                productVm = productVm,          // ← pásalo aquí también
+                                onBack = { navController.popBackStack() }
+                            )
                         }
 
-                        // ------------------------------------------------------------------
-                        // Catálogo
-                        // ------------------------------------------------------------------
                         composable("catalog") {
                             CatalogScreen(
-                                userName  = displayName,                 // coherente con Home
+                                userName  = displayName,
                                 userEmail = state.userEmail ?: "—",
                                 onBack = { navController.popBackStack() },
                                 onLogout = {
@@ -157,6 +139,13 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("catalog") { inclusive = true }
                                     }
                                 }
+                            )
+                        }
+
+                        composable("profile") {
+                            ProfileScreen(
+                                vm = userVm,
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }

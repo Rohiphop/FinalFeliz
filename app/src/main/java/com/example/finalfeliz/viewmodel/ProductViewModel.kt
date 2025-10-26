@@ -1,10 +1,8 @@
 package com.example.finalfeliz.viewmodel
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.finalfeliz.data.AppDatabase
 import com.example.finalfeliz.data.Product
 import com.example.finalfeliz.data.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,40 +11,29 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-// -----------------------------------------------------------
-// Representa el estado visual del catálogo o panel de productos
-// -----------------------------------------------------------
 data class ProductState(
-    val loading: Boolean = true,          // indica si los productos están cargando
-    val error: String? = null,            // mensaje de error si ocurre alguna excepción
-    val products: List<Product> = emptyList() // lista actual de productos en memoria
+    val loading: Boolean = true,
+    val error: String? = null,
+    val products: List<Product> = emptyList()
 )
 
-// -----------------------------------------------------------
-// ViewModel responsable de manejar los productos
-// -----------------------------------------------------------
 class ProductViewModel(
-    private val repo: ProductRepository   // capa de datos que maneja operaciones en Room
+    private val repo: ProductRepository
 ) : ViewModel() {
 
-    // Estado observable por la UI
     private val _state = MutableStateFlow(ProductState())
     val state: StateFlow<ProductState> = _state
 
     init {
-        // Suscripción continua al flujo de productos almacenados en la base de datos
-        // Esto permite actualizaciones reactivas en tiempo real cuando se agregan o eliminan productos
         viewModelScope.launch {
             repo.productsFlow
                 .catch { e ->
-                    // Si ocurre un error en el flujo (por ejemplo, DB inaccesible)
                     _state.value = _state.value.copy(
                         loading = false,
-                        error = e.message
+                        error = e.message ?: "Error al cargar productos"
                     )
                 }
                 .collectLatest { list ->
-                    // Cuando el flujo emite una nueva lista de productos
                     _state.value = _state.value.copy(
                         loading = false,
                         error = null,
@@ -56,11 +43,12 @@ class ProductViewModel(
         }
     }
 
-    // -----------------------------------------------------------
-    // Operaciones CRUD sobre los productos
-    // -----------------------------------------------------------
+    fun clearError() {
+        _state.value = _state.value.copy(error = null)
+    }
 
-    /** Agrega un nuevo producto a la base de datos. */
+    // --------- CRUD ---------
+
     fun add(
         name: String,
         material: String,
@@ -68,35 +56,42 @@ class ProductViewModel(
         imageRes: Int?,
         desc: String?
     ) = viewModelScope.launch {
-        repo.add(name, material, priceClp, imageRes, desc)
+        try {
+            repo.add(name, material, priceClp, imageRes, desc)
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(error = e.message ?: "Error al agregar producto")
+        }
     }
 
-    /** Actualiza un producto existente. */
     fun update(p: Product) = viewModelScope.launch {
-        repo.update(p)
+        try {
+            repo.update(p)
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(error = e.message ?: "Error al actualizar producto")
+        }
     }
 
-    /** Elimina un producto de la base de datos. */
     fun delete(p: Product) = viewModelScope.launch {
-        repo.delete(p)
+        try {
+            repo.delete(p)
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(error = e.message ?: "Error al eliminar producto")
+        }
     }
-}
 
-// -----------------------------------------------------------
-// Factory personalizada para construir el ProductViewModel
-// -----------------------------------------------------------
-class ProductVMFactory(private val appContext: Context) : ViewModelProvider.Factory {
+    // --------- Utilidades ---------
 
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+    fun seedIfNeeded() = viewModelScope.launch {
+        try {
+            repo.ensureSeeded()
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(error = e.message ?: "Error al precargar productos")
+        }
+    }
 
-        // 1. Se obtiene la instancia de la base de datos Room
-        val db = AppDatabase.get(appContext)
-
-        // 2. Se crea el repositorio que usa el DAO de productos
-        val repo = ProductRepository(db.productDao())
-
-        // 3. Se retorna el ViewModel configurado con su repositorio
-        return ProductViewModel(repo) as T
+    suspend fun findById(id: Long): Product? = try {
+        repo.findById(id)
+    } catch (_: Exception) {
+        null
     }
 }
