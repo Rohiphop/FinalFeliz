@@ -1,7 +1,9 @@
 package com.example.finalfeliz.screen
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -23,8 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -46,7 +49,9 @@ fun CatalogScreen(
     userEmail: String,
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onAddToCart: (Product) -> Unit = {},
+    onAddToCart: (com.example.finalfeliz.data.Product) -> Unit = {},
+    onOpenCart: () -> Unit,
+    cartCount: Int
 ) {
     // Paleta estilo Perfil/Register
     val green = Color(0xFF1B5E20)
@@ -58,6 +63,20 @@ fun CatalogScreen(
     val ctx = LocalContext.current
     val pvm: ProductViewModel = viewModel(factory = ProductVMFactory(ctx.applicationContext))
     val pState by pvm.state.collectAsState()
+
+    // ---- Parpadeo verde del ícono del carrito por 2s cada vez que se agrega algo ----
+    var flashCart by remember { mutableStateOf(false) }
+    LaunchedEffect(flashCart) {
+        if (flashCart) {
+            delay(2000)
+            flashCart = false
+        }
+    }
+    val cartTint by animateColorAsState(
+        targetValue = if (flashCart) Color(0xFF2FD03B) /* verde claro */ else Color.White,
+        label = "cartTint"
+    )
+    // -------------------------------------------------------------------------------
 
     Box(Modifier.fillMaxSize()) {
         // Fondo con blur + overlay
@@ -83,6 +102,20 @@ fun CatalogScreen(
                             )
                         }
                     },
+                    actions = {
+                        // Reemplaza el TextButton por un ícono con badge y tint animado
+                        BadgedBox(
+                            badge = { if (cartCount > 0) Badge { Text("$cartCount") } }
+                        ) {
+                            IconButton(onClick = onOpenCart) {
+                                Icon(
+                                    imageVector = Icons.Filled.ShoppingCart,
+                                    contentDescription = "Carrito",
+                                    tint = cartTint
+                                )
+                            }
+                        }
+                    },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = Color.Transparent,
                         titleContentColor = Color.White,
@@ -97,10 +130,9 @@ fun CatalogScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .fillMaxSize()
             ) {
-                // Tarjeta de usuario - panel oscuro
+                // Tarjeta usuario
                 ElevatedCard(
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.elevatedCardColors(containerColor = panel),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -179,9 +211,10 @@ fun CatalogScreen(
                     items(pState.products, key = { it.id }) { product ->
                         CatalogItemCard(
                             product = product,
-                            green = green,
-                            panel = panel,
-                            onAdd = { onAddToCart(product) }
+                            onAdd = {
+                                onAddToCart(product) // tu callback hacia afuera
+                                flashCart = true     // activa parpadeo verde del ícono de carrito
+                            }
                         )
                     }
                 }

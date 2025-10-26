@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)
+    alias(libs.plugins.ksp)           // KSP para Room
 }
 
 android {
@@ -28,6 +28,7 @@ android {
         }
     }
 
+    // Recomendado hoy
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -38,43 +39,54 @@ android {
 }
 
 dependencies {
-    // --- CORE ---
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-    // --- COMPOSE ---
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.text)         // ✅ Necesario para KeyboardOptions
     implementation("androidx.compose.material:material-icons-extended")
 
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // --- FOUNDATION / NAVIGATION ---
-    implementation(libs.androidx.compose.foundation)
     implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.material3)
 
-    // --- ROOM ---
     val room = "2.6.1"
     implementation("androidx.room:room-runtime:$room")
     implementation("androidx.room:room-ktx:$room")
     ksp("androidx.room:room-compiler:$room")
 
-    // --- DATASTORE ---
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // --- DEBUG: Visor BD ---
-    debugImplementation("com.guolindev.glance:glance:1.1.0")
-
-    // --- TESTS ---
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Opcional: visor BD en debug
+    debugImplementation("com.guolindev.glance:glance:1.1.0")
+
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    implementation("androidx.compose.foundation:foundation")
+
+    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.navigation:navigation-compose:2.8.3")
+
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
+
+    // Imágenes
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
 }

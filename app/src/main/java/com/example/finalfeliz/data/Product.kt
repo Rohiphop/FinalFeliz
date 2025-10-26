@@ -2,6 +2,8 @@ package com.example.finalfeliz.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.finalfeliz.data.Product
+import com.example.finalfeliz.domain.mappers.toDomain
 
 @Entity(tableName = "products")
 data class Product(

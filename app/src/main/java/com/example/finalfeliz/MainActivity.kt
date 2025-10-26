@@ -11,8 +11,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.finalfeliz.screen.*
+// Screens
+import com.example.finalfeliz.screen.*   // HomeScreen, CatalogScreen, AdminScreen, etc.
 import com.example.finalfeliz.ui.theme.FinalFelizTheme
+// Carrito
+import com.example.finalfeliz.ui.cart.CartScreen
+import com.example.finalfeliz.ui.cart.CartViewModel
+// Mapper de Product (data) -> Product (domain) para el carrito
+import com.example.finalfeliz.domain.mappers.toDomain
+import com.example.finalfeliz.data.Product
+import com.example.finalfeliz.domain.mappers.toDomain
+
 import com.example.finalfeliz.viewmodel.UserVMFactory
 import com.example.finalfeliz.viewmodel.UserViewModel
 import com.example.finalfeliz.viewmodel.ProductVMFactory
@@ -28,16 +37,26 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
 
                     // VM compartido de usuario
-                    val userVm: UserViewModel = viewModel(factory = UserVMFactory(applicationContext))
+                    // ViewModel compartido de usuario
+                    val userVm: com.example.finalfeliz.viewmodel.UserViewModel =
+                        viewModel(factory = com.example.finalfeliz.viewmodel.UserVMFactory(applicationContext))
                     val state by userVm.state.collectAsState()
 
                     // VM compartido de productos (una sola instancia para toda la app)
                     val productVm: ProductViewModel = viewModel(factory = ProductVMFactory(applicationContext))
 
+                    // Carrito en memoria (compartido)
+                    val cartVm: CartViewModel = viewModel()
+                    val cartUi by cartVm.uiState.collectAsState()
+
+                    // Nombre a mostrar en Home
                     val displayName = if (state.isAdmin) "Admin" else state.userName ?: "Usuario"
 
                     NavHost(navController = navController, startDestination = "welcome") {
 
+                        // ------------------------------------------------------------------
+                        // Bienvenida
+                        // ------------------------------------------------------------------
                         composable("welcome") {
                             WelcomeScreen(
                                 onGoLogin = { navController.navigate("login") },
@@ -45,6 +64,9 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ------------------------------------------------------------------
+                        // Login
+                        // ------------------------------------------------------------------
                         composable("login") {
                             LoginScreen(
                                 vm = userVm,
@@ -53,9 +75,8 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("welcome") { inclusive = true }
                                     }
                                 },
-                                // ⬇️ Antes llevaba a "admin"; ahora también a "home"
                                 onAdminLogin = {
-                                    navController.navigate("home") {
+                                    navController.navigate("admin") {
                                         popUpTo("welcome") { inclusive = true }
                                     }
                                 },
@@ -63,7 +84,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-
+                        // ------------------------------------------------------------------
+                        // Registro: tras crear cuenta, decide destino según el tipo de usuario
+                        // - Se inyecta el MISMO UserViewModel compartido
+                        // ------------------------------------------------------------------
                         composable("register") {
                             RegisterScreen(
                                 vm = userVm,
@@ -82,6 +106,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ------------------------------------------------------------------
+                        // Home (usuarios normales). Si es admin, verá además el botón
+                        // de acceso al panel de administración.
+                        // ------------------------------------------------------------------
                         composable("home") {
                             HomeScreen(
                                 userName = displayName,
@@ -99,6 +127,9 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ------------------------------------------------------------------
+                        // Panel de administración (solo debería usarse si es admin)
+                        // ------------------------------------------------------------------
                         composable("admin") {
                             AdminScreen(
                                 vm = userVm,
@@ -113,14 +144,24 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ------------------------------------------------------------------
+                        // Personalización de ataúdes
+                        // ------------------------------------------------------------------
                         composable("customize") {
                             CustomizeCoffinScreen(
                                 onBack = { navController.popBackStack() },
-                                onSave = { /* acción posterior si la necesitas */ }
+                                onSave = { dbProduct ->
+                                    cartVm.add(dbProduct.toDomain())  // data.Product -> domain.Product
+                                    navController.navigate("cart")    // opcional: mostrar carrito al guardar
+                                }
                             )
                         }
 
-                        // Gestión de productos: usar el productVm compartido
+
+
+                        // ------------------------------------------------------------------
+                        // Gestión de productos del catálogo (acceso desde Admin)
+                        // ------------------------------------------------------------------
                         composable("admin_products") {
                             AdminProductsScreen(
                                 productVm = productVm,          // ← pásalo aquí también
@@ -128,6 +169,9 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ------------------------------------------------------------------
+                        // Catálogo
+                        // ------------------------------------------------------------------
                         composable("catalog") {
                             CatalogScreen(
                                 userName  = displayName,
@@ -138,7 +182,23 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("welcome") {
                                         popUpTo("catalog") { inclusive = true }
                                     }
-                                }
+                                },
+                                onAddToCart = { p -> cartVm.add(p.toDomain()) }, // agrega al carrito
+                                onOpenCart = { navController.navigate("cart") },  // abre carrito
+                                cartCount = cartUi.itemCount                      // contador en AppBar
+                            )
+                        }
+
+                        // ------------------------------------------------------------------
+                        // Carrito (visual, sin pago)
+                        // ------------------------------------------------------------------
+                        composable("cart") {
+                            CartScreen(
+                                state = cartUi,
+                                onInc = cartVm::inc,
+                                onDec = cartVm::dec,
+                                onRemove = cartVm::remove,
+                                onCheckout = { /* vacío: no hay pago */ }
                             )
                         }
 
