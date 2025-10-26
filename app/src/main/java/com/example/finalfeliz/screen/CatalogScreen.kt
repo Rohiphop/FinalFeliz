@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,7 +53,13 @@ fun CatalogScreen(
     onOpenCart: () -> Unit,
     cartCount: Int
 ) {
-    // VM de productos (Room)
+    // Paleta estilo Perfil/Register
+    val green = Color(0xFF1B5E20)
+    val panel = Color(0xFF0B0B0B).copy(alpha = 0.55f)
+    val overlay = Color.Black.copy(alpha = 0.40f)
+    val borderIdle = Color.White.copy(alpha = 0.22f)
+
+    // VM productos (Room)
     val ctx = LocalContext.current
     val pvm: ProductViewModel = viewModel(factory = ProductVMFactory(ctx.applicationContext))
     val pState by pvm.state.collectAsState()
@@ -74,14 +79,14 @@ fun CatalogScreen(
     // -------------------------------------------------------------------------------
 
     Box(Modifier.fillMaxSize()) {
-        // Fondo
+        // Fondo con blur + overlay
         Image(
             painter = painterResource(id = R.drawable.fondo_cementerio),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().blur(20.dp)
+            modifier = Modifier.fillMaxSize().blur(16.dp)
         )
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        Box(Modifier.fillMaxSize().background(overlay))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -140,28 +145,34 @@ fun CatalogScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                .background(Color.White.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.Person, contentDescription = null)
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = Color.White)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 userName,
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 userEmail,
+                                color = Color.White.copy(alpha = 0.8f),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                         }
                         Spacer(Modifier.width(12.dp))
                         OutlinedButton(
                             onClick = onLogout,
+                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                width = 1.dp,
+                                brush = Brush.linearGradient(listOf(borderIdle, borderIdle))
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Icon(Icons.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -189,7 +200,7 @@ fun CatalogScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                // Grid de productos desde Room
+                // Grid de productos
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -215,19 +226,22 @@ fun CatalogScreen(
 @Composable
 private fun CatalogItemCard(
     product: Product,
+    green: Color,
+    panel: Color,
     onAdd: () -> Unit
 ) {
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = panel),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
-            // Imagen
+            // Imagen con degradado inferior
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(Color.White.copy(alpha = 0.06f))
             ) {
                 product.imageRes?.let {
                     Image(
@@ -240,14 +254,11 @@ private fun CatalogItemCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
+                        .height(64.dp)
                         .align(Alignment.BottomCenter)
                         .background(
-                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.35f)
-                                )
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color(0xAA000000))
                             )
                         )
                 )
@@ -256,14 +267,15 @@ private fun CatalogItemCard(
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
                     product.name,
+                    color = Color.White,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     product.material,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(8.dp))
 
@@ -275,58 +287,47 @@ private fun CatalogItemCard(
                     val priceLabel = "$ ${"%,d".format(product.priceClp)}"
                     Text(
                         priceLabel,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
                     )
 
-                    // Botón con animación (verde al agregar) — sin texto, solo ícono
-                    var added by rememberSaveable(product.id) { mutableStateOf(false) }
-
-                    val wine = Color(0xFF0E5A22)
-                    val success = Color(0xFF2FD03B)
+                    // ---- Botón redondo SOLO con carrito; se vuelve verde claro 2s ----
+                    var pressed by rememberSaveable(product.id) { mutableStateOf(false) }
+                    val lightGreen = Color(0xFF2FD03B)
 
                     val bg by animateColorAsState(
-                        targetValue = if (added) success else wine,
+                        targetValue = if (pressed) lightGreen else green,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                        label = "bg"
+                        label = "bgCart"
                     )
 
-                    val iconAlpha by animateFloatAsState(
-                        targetValue = 1f,
-                        label = "iconAlpha"
-                    )
+                    LaunchedEffect(pressed) {
+                        if (pressed) {
+                            delay(2000) // ~2 segundos
+                            pressed = false
+                        }
+                    }
 
-                    FilledTonalButton(
+                    Button(
                         onClick = {
-                            if (!added) {
+                            if (!pressed) {
                                 onAdd()
-                                added = true
+                                pressed = true
                             }
                         },
-                        colors = ButtonDefaults.filledTonalButtonColors(
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
                             containerColor = bg,
                             contentColor = Color.White
                         ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        modifier = Modifier.animateContentSize(
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                        )
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(42.dp) // tamaño compacto, sin texto
                     ) {
                         Icon(
-                            imageVector = if (added) Icons.Filled.Check else Icons.Filled.AddShoppingCart,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .graphicsLayer { alpha = iconAlpha }
+                            imageVector = Icons.Filled.AddShoppingCart,
+                            contentDescription = "Agregar al carrito",
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(Modifier.width(8.dp))
-
-                        if (added) {
-                            LaunchedEffect(Unit) {
-                                delay(1200)
-                                added = false
-                            }
-                        }
                     }
                 }
             }

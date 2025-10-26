@@ -22,6 +22,10 @@ import com.example.finalfeliz.domain.mappers.toDomain
 import com.example.finalfeliz.data.Product
 import com.example.finalfeliz.domain.mappers.toDomain
 
+import com.example.finalfeliz.viewmodel.UserVMFactory
+import com.example.finalfeliz.viewmodel.UserViewModel
+import com.example.finalfeliz.viewmodel.ProductVMFactory
+import com.example.finalfeliz.viewmodel.ProductViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,13 +34,16 @@ class MainActivity : ComponentActivity() {
             FinalFelizTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
 
-                    // Controlador de navegación principal
                     val navController = rememberNavController()
 
+                    // VM compartido de usuario
                     // ViewModel compartido de usuario
                     val userVm: com.example.finalfeliz.viewmodel.UserViewModel =
                         viewModel(factory = com.example.finalfeliz.viewmodel.UserVMFactory(applicationContext))
                     val state by userVm.state.collectAsState()
+
+                    // VM compartido de productos (una sola instancia para toda la app)
+                    val productVm: ProductViewModel = viewModel(factory = ProductVMFactory(applicationContext))
 
                     // Carrito en memoria (compartido)
                     val cartVm: CartViewModel = viewModel()
@@ -78,7 +85,8 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // ------------------------------------------------------------------
-                        // Registro
+                        // Registro: tras crear cuenta, decide destino según el tipo de usuario
+                        // - Se inyecta el MISMO UserViewModel compartido
                         // ------------------------------------------------------------------
                         composable("register") {
                             RegisterScreen(
@@ -99,7 +107,8 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // ------------------------------------------------------------------
-                        // Home (portada principal)
+                        // Home (usuarios normales). Si es admin, verá además el botón
+                        // de acceso al panel de administración.
                         // ------------------------------------------------------------------
                         composable("home") {
                             HomeScreen(
@@ -113,20 +122,18 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onGoCatalog = { navController.navigate("catalog") },
                                 onGoCustomize = { navController.navigate("customize") },
-                                onGoAdmin = { navController.navigate("admin") },
-
-                                // ⭐️ Estos dos eran los que faltaban:
-                                cartCount = cartUi.itemCount,
-                                onOpenCart = { navController.navigate("cart") }
+                                onGoAdmin   = { navController.navigate("admin") },
+                                onGoProfile = { navController.navigate("profile") }
                             )
                         }
 
                         // ------------------------------------------------------------------
-                        // Panel Admin
+                        // Panel de administración (solo debería usarse si es admin)
                         // ------------------------------------------------------------------
                         composable("admin") {
                             AdminScreen(
                                 vm = userVm,
+                                productVm = productVm, // ← pásalo aquí
                                 onBack = { navController.popBackStack() },
                                 onLogout = {
                                     userVm.logout()
@@ -138,7 +145,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // ------------------------------------------------------------------
-                        // Personalización
+                        // Personalización de ataúdes
                         // ------------------------------------------------------------------
                         composable("customize") {
                             CustomizeCoffinScreen(
@@ -153,10 +160,13 @@ class MainActivity : ComponentActivity() {
 
 
                         // ------------------------------------------------------------------
-                        // Gestión de productos (Admin)
+                        // Gestión de productos del catálogo (acceso desde Admin)
                         // ------------------------------------------------------------------
                         composable("admin_products") {
-                            AdminProductsScreen(onBack = { navController.popBackStack() })
+                            AdminProductsScreen(
+                                productVm = productVm,          // ← pásalo aquí también
+                                onBack = { navController.popBackStack() }
+                            )
                         }
 
                         // ------------------------------------------------------------------
@@ -189,6 +199,13 @@ class MainActivity : ComponentActivity() {
                                 onDec = cartVm::dec,
                                 onRemove = cartVm::remove,
                                 onCheckout = { /* vacío: no hay pago */ }
+                            )
+                        }
+
+                        composable("profile") {
+                            ProfileScreen(
+                                vm = userVm,
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }

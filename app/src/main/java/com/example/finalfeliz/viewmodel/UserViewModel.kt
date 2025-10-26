@@ -4,57 +4,66 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.finalfeliz.data.User
 import com.example.finalfeliz.data.UserRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
 // -----------------------------------------------------------
-// Eventos one-shot: mensajes y resultados únicos hacia la UI
+// Eventos one-shot: la UI los consume una sola vez
 // -----------------------------------------------------------
 sealed interface UserEvent {
     object LoginSuccess : UserEvent
     data class ShowMessage(val msg: String) : UserEvent
+
+    // Perfil
+    object ProfileNameSaved : UserEvent
+    object PasswordChanged : UserEvent
+    object PhoneSaved : UserEvent
 }
 
 // -----------------------------------------------------------
-// Estado principal que refleja la información del usuario
+// Estado principal reflejado en la UI
 // -----------------------------------------------------------
 data class UserState(
     val loading: Boolean = false,
     val error: String? = null,
+
     val userName: String? = null,
     val userEmail: String? = null,
-    val isAdmin: Boolean = false,          // indica si el usuario tiene privilegios
-    val users: List<User> = emptyList(),   // lista visible solo para admins
-    val userCount: Int = 0                 // conteo total de usuarios
+    val userPhone: String? = null,
+    val isAdmin: Boolean = false,
+
+    // Solo útil para pantallas/admin
+    val users: List<User> = emptyList(),
+    val userCount: Int = 0
 )
 
 // -----------------------------------------------------------
-// ViewModel que maneja autenticación y administración de usuarios
+// ViewModel: autentica, expone estado y opera perfil/admin
 // -----------------------------------------------------------
 class UserViewModel(
     private val repository: UserRepository
 ) : ViewModel() {
 
-    // Estado expuesto a la UI
+    // Estado observable
     private val _state = MutableStateFlow(UserState())
     val state: StateFlow<UserState> = _state
 
-    // Canal para enviar eventos de una sola vez (no persistentes)
+    // Canal de eventos one-shot
     private val _events = MutableSharedFlow<UserEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<UserEvent> = _events
 
     init {
-        // Observa al usuario actual de forma reactiva (Room + Flow)
-        // Esto actualiza la UI automáticamente cuando cambia el usuario
+        // Observa cambios del usuario actual (Room + Flow)
         viewModelScope.launch {
             repository.currentUserFlow.collectLatest { user ->
                 _state.value = _state.value.copy(
                     userName = user?.name,
                     userEmail = user?.email,
+                    userPhone = user?.phone,
                     isAdmin = (user?.isAdmin == true)
                 )
             }
@@ -62,18 +71,15 @@ class UserViewModel(
     }
 
     // -----------------------------------------------------------
-    // Registro de nuevos usuarios
+    // Registro (con teléfono opcional)
     // -----------------------------------------------------------
-    fun register(name: String, email: String, password: String) {
+    fun register(name: String, email: String, password: String, phone: String? = null) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
-            val result = repository.register(name, email, password)
-
+            val result = repository.register(name, email, password, phone)
             _state.value = if (result.isSuccess) {
-                // Si el registro fue exitoso, la sesión se actualiza por currentUserFlow
                 _state.value.copy(loading = false)
             } else {
-                // Si ocurrió un error, lo reflejamos en el estado
                 _state.value.copy(
                     loading = false,
                     error = result.exceptionOrNull()?.message
@@ -83,19 +89,16 @@ class UserViewModel(
     }
 
     // -----------------------------------------------------------
-    // Inicio de sesión
+    // Login
     // -----------------------------------------------------------
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             val result = repository.login(email, password)
-
             if (result.isSuccess) {
-                // Éxito: actualiza el estado y emite evento a la UI
                 _state.value = _state.value.copy(loading = false, error = null)
                 _events.tryEmit(UserEvent.LoginSuccess)
             } else {
-                // Falla: muestra mensaje de error
                 _state.value = _state.value.copy(
                     loading = false,
                     error = "Correo o contraseña incorrectas"
@@ -106,20 +109,69 @@ class UserViewModel(
     }
 
     // -----------------------------------------------------------
-    // Cierre de sesión
+    // Logout
     // -----------------------------------------------------------
     fun logout() {
         viewModelScope.launch {
-            repository.logout()                // limpia la sesión actual
-            _state.value = UserState()         // reinicia el estado en la UI
+            repository.logout()
+            _state.value = UserState()
         }
     }
 
-    // -----------------------------------------------------------
-    // Funcionalidades exclusivas para administradores
-    // -----------------------------------------------------------
+    // ===========================================================
+    // PERFIL: actualizar nombre / contraseña / teléfono
+    // ===========================================================
 
-    /** Carga el conteo y la lista de usuarios, solo si el actual es administrador. */
+    /** Guarda un nuevo nombre para el usuario actual. */
+    fun saveProfileName(newName: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+            val r = repository.updateCurrentUserName(newName)
+            _state.value = if (r.isSuccess) {
+                // El flujo currentUserFlow refrescará userName
+                _state.value.copy(loading = false, error = null)
+            } else {
+                _state.value.copy(loading = false, error = r.exceptionOrNull()?.message)
+            }
+            if (r.isSuccess) _events.tryEmit(UserEvent.ProfileNameSaved)
+        }
+    }
+
+    /**
+     * Cambia la contraseña del usuario actual validando la contraseña actual.
+     * Reglas UI típicas: nueva contraseña fuerte y confirmación igual en la pantalla.
+     */
+    fun changePassword(currentPassword: String, newPassword: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+            val r = repository.changeCurrentUserPassword(currentPassword, newPassword)
+            _state.value = if (r.isSuccess) {
+                _state.value.copy(loading = false, error = null)
+            } else {
+                _state.value.copy(loading = false, error = r.exceptionOrNull()?.message)
+            }
+            if (r.isSuccess) _events.tryEmit(UserEvent.PasswordChanged)
+        }
+    }
+
+    /** Actualiza el teléfono del usuario actual. */
+    fun savePhone(newPhone: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+            val r = repository.updateCurrentUserPhone(newPhone)
+            _state.value = if (r.isSuccess) {
+                // currentUserFlow refrescará userPhone
+                _state.value.copy(loading = false, error = null)
+            } else {
+                _state.value.copy(loading = false, error = r.exceptionOrNull()?.message)
+            }
+            if (r.isSuccess) _events.tryEmit(UserEvent.PhoneSaved)
+        }
+    }
+
+    // ===========================================================
+    // ADMIN
+    // ===========================================================
     fun loadAdminData() {
         viewModelScope.launch {
             if (_state.value.isAdmin) {
@@ -133,12 +185,11 @@ class UserViewModel(
         }
     }
 
-    /** Cambia el rol de un usuario (asignar o quitar privilegios de admin). */
     fun setAdmin(userId: Long, admin: Boolean) {
         viewModelScope.launch {
             if (_state.value.isAdmin) {
                 repository.setAdmin(userId, admin)
-                loadAdminData() // refresca la lista tras el cambio
+                loadAdminData()
             }
         }
     }
