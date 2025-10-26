@@ -1,8 +1,22 @@
 package com.example.finalfeliz.screen
 
+// ✅ usa el Product de DATA (Room) para guardar y luego mapear a dominio en el NavHost
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -10,8 +24,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -21,15 +52,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.finalfeliz.R
 import kotlin.math.roundToInt
+import com.example.finalfeliz.data.Product as DbProduct
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomizeCoffinScreen(
     onBack: () -> Unit,
-    onSave: (CoffinConfig) -> Unit = {} // devuelve la config elegida
+    onSave: (DbProduct) -> Unit = {} // ← ahora devuelve un data.Product listo para carrito
 ) {
     // ----------- Estado del formulario -----------
     var material by remember { mutableStateOf(MaterialOption.Nogal) }
@@ -41,7 +72,7 @@ fun CustomizeCoffinScreen(
     var paddedInterior by remember { mutableStateOf(true) }
 
     // ----------- Cálculo de precio -----------
-    val basePrice = 500.000
+    val basePrice = 500_000.0 // CLP base
     val materialFactor = when (material) {
         MaterialOption.Nogal -> 1.00
         MaterialOption.Roble -> 1.10
@@ -49,20 +80,21 @@ fun CustomizeCoffinScreen(
         MaterialOption.BlancoLacado -> 1.15
     }
     val sizeFactor = when (size) {
-        SizeOption.Compacto -> 0.9
-        SizeOption.Estándar -> 1.0
-        SizeOption.Extendido -> 1.2
+        SizeOption.Compacto -> 0.90
+        SizeOption.Estándar -> 1.00
+        SizeOption.Extendido -> 1.20
     }
     val finishFactor = when (finish) {
-        FinishOption.Mate -> 1.0
+        FinishOption.Mate -> 1.00
         FinishOption.Satinado -> 1.05
         FinishOption.Brillante -> 1.10
     }
-    val extras = (if (premiumHandles) 90.0 else 0.0) + (if (paddedInterior) 130.0 else 0.0)
-    val engravingCost = if (engraving.isNotBlank()) 50.0 else 0.0
+    val extras = (if (premiumHandles) 90_000.0 else 0.0) + (if (paddedInterior) 130_000.0 else 0.0)
+    val engravingCost = if (engraving.isNotBlank()) 50_000.0 else 0.0
 
-    val estimatedPrice = ((basePrice * materialFactor * sizeFactor * finishFactor) + extras + engravingCost)
+    val estimatedPriceClp = ((basePrice * materialFactor * sizeFactor * finishFactor) + extras + engravingCost)
         .roundToInt()
+        .toLong()
 
     // ----------- UI -----------
     Box(Modifier.fillMaxSize()) {
@@ -147,7 +179,7 @@ fun CustomizeCoffinScreen(
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "Estimado: $$estimatedPrice",
+                            "Estimado: $${"%,d".format(estimatedPriceClp)}",
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -190,7 +222,7 @@ fun CustomizeCoffinScreen(
                     )
                 }
 
-                // Sección: Grabado
+                // sección: Grabado
                 SectionCard(title = "Grabado (opcional)") {
                     OutlinedTextField(
                         value = engraving,
@@ -248,16 +280,26 @@ fun CustomizeCoffinScreen(
 
                     Button(
                         onClick = {
+                            // Construimos un data.Product (DbProduct) para mandarlo al carrito
+                            val name = "Ataúd ${material.label} • ${color.label}"
+                            val desc = buildString {
+                                append("Material: ${material.label}")
+                                append(" | Color: ${color.label}")
+                                append(" | Tamaño: ${size.label}")
+                                append(" | Terminación: ${finish.label}")
+                                if (engraving.isNotBlank()) append(" | Grabado: $engraving")
+                                append(" | Manillas premium: ${if (premiumHandles) "Sí" else "No"}")
+                                append(" | Interior acolchado: ${if (paddedInterior) "Sí" else "No"}")
+                            }
+
                             onSave(
-                                CoffinConfig(
-                                    material = material,
-                                    color = color,
-                                    size = size,
-                                    finish = finish,
-                                    engraving = engraving,
-                                    premiumHandles = premiumHandles,
-                                    paddedInterior = paddedInterior,
-                                    estimatedPrice = estimatedPrice
+                                DbProduct(
+                                    id = 0, // Room puede autogenerar si luego persistes
+                                    name = name,
+                                    material = material.label,
+                                    priceClp = estimatedPriceClp,
+                                    imageRes = null,
+                                    description = desc
                                 )
                             )
                         },
@@ -277,7 +319,7 @@ fun CustomizeCoffinScreen(
 
 // ------- Modelos y helpers -------
 
-data class CoffinConfig(
+data class CoffinConfig( // (ya no se usa en onSave, lo dejo por si lo referenciabas en otra parte)
     val material: MaterialOption,
     val color: ColorOption,
     val size: SizeOption,
@@ -332,6 +374,7 @@ private fun SectionCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun <T : Enum<T>> SingleChoiceChips(
     options: List<T>,

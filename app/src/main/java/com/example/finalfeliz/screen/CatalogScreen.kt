@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,12 +50,28 @@ fun CatalogScreen(
     userEmail: String,
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onAddToCart: (Product) -> Unit = {},
+    onAddToCart: (com.example.finalfeliz.data.Product) -> Unit = {},
+    onOpenCart: () -> Unit,
+    cartCount: Int
 ) {
-    // ViewModel de productos (Room)
+    // VM de productos (Room)
     val ctx = LocalContext.current
     val pvm: ProductViewModel = viewModel(factory = ProductVMFactory(ctx.applicationContext))
     val pState by pvm.state.collectAsState()
+
+    // ---- Parpadeo verde del ícono del carrito por 2s cada vez que se agrega algo ----
+    var flashCart by remember { mutableStateOf(false) }
+    LaunchedEffect(flashCart) {
+        if (flashCart) {
+            delay(2000)
+            flashCart = false
+        }
+    }
+    val cartTint by animateColorAsState(
+        targetValue = if (flashCart) Color(0xFF2FD03B) /* verde claro */ else Color.White,
+        label = "cartTint"
+    )
+    // -------------------------------------------------------------------------------
 
     Box(Modifier.fillMaxSize()) {
         // Fondo
@@ -78,6 +95,20 @@ fun CatalogScreen(
                                 contentDescription = "Volver",
                                 tint = Color.White
                             )
+                        }
+                    },
+                    actions = {
+                        // Reemplaza el TextButton por un ícono con badge y tint animado
+                        BadgedBox(
+                            badge = { if (cartCount > 0) Badge { Text("$cartCount") } }
+                        ) {
+                            IconButton(onClick = onOpenCart) {
+                                Icon(
+                                    imageVector = Icons.Filled.ShoppingCart,
+                                    contentDescription = "Carrito",
+                                    tint = cartTint
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -169,7 +200,10 @@ fun CatalogScreen(
                     items(pState.products, key = { it.id }) { product ->
                         CatalogItemCard(
                             product = product,
-                            onAdd = { onAddToCart(product) }
+                            onAdd = {
+                                onAddToCart(product) // tu callback hacia afuera
+                                flashCart = true     // activa parpadeo verde del ícono de carrito
+                            }
                         )
                     }
                 }
@@ -245,7 +279,7 @@ private fun CatalogItemCard(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    // Botón con animación (verde al agregar)
+                    // Botón con animación (verde al agregar) — sin texto, solo ícono
                     var added by rememberSaveable(product.id) { mutableStateOf(false) }
 
                     val wine = Color(0xFF0E5A22)

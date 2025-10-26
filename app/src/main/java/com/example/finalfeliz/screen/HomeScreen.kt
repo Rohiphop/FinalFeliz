@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,7 +27,10 @@ fun HomeScreen(
     onLogoutClick: () -> Unit,        // Acción al cerrar sesión
     onGoCatalog: () -> Unit,          // Navegar al catálogo de productos
     onGoCustomize: () -> Unit,        // Navegar a la personalización de ataúdes
-    onGoAdmin: () -> Unit = {}        // Navegar al panel de administración (solo admins)
+    onGoAdmin: () -> Unit = {},       // Navegar al panel de administración (solo admins)
+    // 🔽 NUEVOS:
+    cartCount: Int,
+    onOpenCart: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -39,6 +43,18 @@ fun HomeScreen(
                     )
                 },
                 actions = {
+                    // 🛒 Carrito con badge
+                    BadgedBox(
+                        badge = { if (cartCount > 0) Badge { Text("$cartCount") } }
+                    ) {
+                        IconButton(onClick = onOpenCart) {
+                            Icon(
+                                imageVector = Icons.Filled.ShoppingCart,
+                                contentDescription = "Carrito",
+                                tint = Color.White
+                            )
+                        }
+                    }
                     TextButton(onClick = onLogoutClick) {
                         Text("Salir", color = Color.White)
                     }
@@ -49,7 +65,6 @@ fun HomeScreen(
             )
         }
     ) { innerPadding ->
-
         // Contenedor principal con fondo e imagen difuminada
         Box(
             modifier = Modifier
