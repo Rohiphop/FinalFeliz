@@ -36,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "finalfeliz.db"
                 )
+                    .fallbackToDestructiveMigration()
                     .addMigrations(MIGRATION_5_6)
                     .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING) // rendimiento
                     .addCallback(object : Callback() {

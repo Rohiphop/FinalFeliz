@@ -11,13 +11,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-// Screens
-import com.example.finalfeliz.screen.*   // HomeScreen, CatalogScreen, AdminScreen, etc.
+import com.example.finalfeliz.screen.*
 import com.example.finalfeliz.ui.theme.FinalFelizTheme
-// Carrito
 import com.example.finalfeliz.ui.cart.CartScreen
 import com.example.finalfeliz.ui.cart.CartViewModel
-// Mapper de Product (data) -> Product (domain) para el carrito
 import com.example.finalfeliz.domain.mappers.toDomain
 import com.example.finalfeliz.data.Product
 import com.example.finalfeliz.domain.mappers.toDomain
@@ -52,6 +49,7 @@ class MainActivity : ComponentActivity() {
                     // Nombre a mostrar en Home
                     val displayName = if (state.isAdmin) "Admin" else state.userName ?: "Usuario"
 
+
                     NavHost(navController = navController, startDestination = "welcome") {
 
                         // ------------------------------------------------------------------
@@ -63,7 +61,6 @@ class MainActivity : ComponentActivity() {
                                 onGoRegister = { navController.navigate("register") }
                             )
                         }
-
                         // ------------------------------------------------------------------
                         // Login
                         // ------------------------------------------------------------------
@@ -86,7 +83,6 @@ class MainActivity : ComponentActivity() {
 
                         // ------------------------------------------------------------------
                         // Registro: tras crear cuenta, decide destino según el tipo de usuario
-                        // - Se inyecta el MISMO UserViewModel compartido
                         // ------------------------------------------------------------------
                         composable("register") {
                             RegisterScreen(
@@ -123,12 +119,13 @@ class MainActivity : ComponentActivity() {
                                 onGoCatalog = { navController.navigate("catalog") },
                                 onGoCustomize = { navController.navigate("customize") },
                                 onGoAdmin   = { navController.navigate("admin") },
-                                onGoProfile = { navController.navigate("profile") }
+                                cartCount = cartUi.itemCount,
+                                onOpenCart = { navController.navigate("cart") }
                             )
                         }
 
                         // ------------------------------------------------------------------
-                        // Panel de administración (solo debería usarse si es admin)
+                        // Panel de administración (soloadmin)
                         // ------------------------------------------------------------------
                         composable("admin") {
                             AdminScreen(
@@ -152,7 +149,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navController.popBackStack() },
                                 onSave = { dbProduct ->
                                     cartVm.add(dbProduct.toDomain())  // data.Product -> domain.Product
-                                    navController.navigate("cart")    // opcional: mostrar carrito al guardar
+                                    navController.navigate("cart")
                                 }
                             )
                         }
@@ -164,7 +161,7 @@ class MainActivity : ComponentActivity() {
                         // ------------------------------------------------------------------
                         composable("admin_products") {
                             AdminProductsScreen(
-                                productVm = productVm,          // ← pásalo aquí también
+                                productVm = productVm,
                                 onBack = { navController.popBackStack() }
                             )
                         }
@@ -192,15 +189,48 @@ class MainActivity : ComponentActivity() {
                         // ------------------------------------------------------------------
                         // Carrito (visual, sin pago)
                         // ------------------------------------------------------------------
+
                         composable("cart") {
                             CartScreen(
                                 state = cartUi,
                                 onInc = cartVm::inc,
                                 onDec = cartVm::dec,
                                 onRemove = cartVm::remove,
-                                onCheckout = { /* vacío: no hay pago */ }
+                                onCheckout = { cartVm.clear() },
+                                onBack = {
+                                    val popped = navController.popBackStack("catalog", false)
+                                    if (!popped) {
+                                        navController.navigate("catalog") {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                            popUpTo("home") { inclusive = false }
+                                        }
+                                    }
+                                },
+                                onGoHome = {
+                                    navController.navigate("home") {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                        popUpTo("home") { inclusive = false }
+                                    }
+                                },
+                                onGoCatalog = {
+                                    val poppedToCatalog = navController.popBackStack("catalog", false)
+                                    if (!poppedToCatalog) {
+                                        navController.navigate("catalog") {
+                                            launchSingleTop = true
+                                            restoreState = true
+                                            popUpTo("home") { inclusive = false }
+                                        }
+                                    }
+                                }
                             )
                         }
+
+
+
+
+
 
                         composable("profile") {
                             ProfileScreen(

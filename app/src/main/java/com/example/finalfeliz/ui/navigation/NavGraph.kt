@@ -17,9 +17,6 @@ sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Catalog : Screen("catalog")
     data object Cart : Screen("cart")
-    // Si tienes “customize” o “admin”, los agregas acá:
-    // data object Customize : Screen("customize")
-    // data object Admin : Screen("admin")
 }
 
 @Composable
@@ -63,7 +60,10 @@ fun AppNavHost(nav: NavHostController, userName: String, isAdmin: Boolean, onLog
                 onInc = vm::inc,
                 onDec = vm::dec,
                 onRemove = vm::remove,
-                onCheckout = { /* vacío */ }
+                onCheckout = { /* vacío */ },
+                onBack = { nav.popBackStack() },
+                onGoHome = { nav.navigate("home") },      // 👈 nuevo
+                onGoCatalog = { nav.navigate("catalog") }
             )
         }
     }

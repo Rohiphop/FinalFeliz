@@ -1,12 +1,11 @@
 package com.example.finalfeliz.screen
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -19,6 +18,7 @@ import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,8 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -49,22 +49,20 @@ fun CatalogScreen(
     userEmail: String,
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onAddToCart: (com.example.finalfeliz.data.Product) -> Unit = {},
+    onAddToCart: (Product) -> Unit = {},
     onOpenCart: () -> Unit,
     cartCount: Int
 ) {
-    // Paleta estilo Perfil/Register
     val green = Color(0xFF1B5E20)
     val panel = Color(0xFF0B0B0B).copy(alpha = 0.55f)
     val overlay = Color.Black.copy(alpha = 0.40f)
     val borderIdle = Color.White.copy(alpha = 0.22f)
 
-    // VM productos (Room)
     val ctx = LocalContext.current
     val pvm: ProductViewModel = viewModel(factory = ProductVMFactory(ctx.applicationContext))
     val pState by pvm.state.collectAsState()
 
-    // ---- Parpadeo verde del ícono del carrito por 2s cada vez que se agrega algo ----
+    // --- Parpadeo verde del ícono del carrito ---
     var flashCart by remember { mutableStateOf(false) }
     LaunchedEffect(flashCart) {
         if (flashCart) {
@@ -73,13 +71,16 @@ fun CatalogScreen(
         }
     }
     val cartTint by animateColorAsState(
-        targetValue = if (flashCart) Color(0xFF2FD03B) /* verde claro */ else Color.White,
+        targetValue = if (flashCart) Color(0xFF2FD03B) else Color.White,
         label = "cartTint"
     )
-    // -------------------------------------------------------------------------------
+
+    // ✅ NUEVO: producto en detalle y visibilidad del sheet
+    var detailProduct by remember { mutableStateOf<Product?>(null) }
+    var showDetails by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
-        // Fondo con blur + overlay
+        // Fondo blur + overlay
         Image(
             painter = painterResource(id = R.drawable.fondo_cementerio),
             contentDescription = null,
@@ -103,7 +104,6 @@ fun CatalogScreen(
                         }
                     },
                     actions = {
-                        // Reemplaza el TextButton por un ícono con badge y tint animado
                         BadgedBox(
                             badge = { if (cartCount > 0) Badge { Text("$cartCount") } }
                         ) {
@@ -118,8 +118,7 @@ fun CatalogScreen(
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = Color.Transparent,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White
+                        titleContentColor = Color.White
                     )
                 )
             }
@@ -130,7 +129,7 @@ fun CatalogScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .fillMaxSize()
             ) {
-                // Tarjeta usuario
+                // --- Tarjeta usuario ---
                 ElevatedCard(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -156,13 +155,13 @@ fun CatalogScreen(
                                 userName,
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 userEmail,
                                 color = Color.White.copy(alpha = 0.8f),
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                         Spacer(Modifier.width(12.dp))
@@ -190,7 +189,6 @@ fun CatalogScreen(
                 )
                 Spacer(Modifier.height(12.dp))
 
-                // Loading / error
                 if (pState.loading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
@@ -200,7 +198,7 @@ fun CatalogScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                // Grid de productos
+                // --- Grid de productos ---
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -211,12 +209,38 @@ fun CatalogScreen(
                     items(pState.products, key = { it.id }) { product ->
                         CatalogItemCard(
                             product = product,
+                            green = green,
+                            panel = panel,
                             onAdd = {
-                                onAddToCart(product) // tu callback hacia afuera
-                                flashCart = true     // activa parpadeo verde del ícono de carrito
+                                onAddToCart(product)
+                                flashCart = true
+                            },
+                            onOpenDetails = {
+                                detailProduct = product
+                                showDetails = true
                             }
                         )
                     }
+                }
+            }
+
+            // ✅ NUEVO: sheet de detalles
+            if (showDetails && detailProduct != null) {
+                val sheetState = rememberModalBottomSheetState()
+                ModalBottomSheet(
+                    onDismissRequest = { showDetails = false; detailProduct = null },
+                    sheetState = sheetState
+                ) {
+                    ProductDetailSheet(
+                        product = detailProduct!!,
+                        onAdd = { qty ->
+                            repeat(qty) { onAddToCart(detailProduct!!) }
+                            showDetails = false
+                            detailProduct = null
+                            flashCart = true
+                        },
+                        onClose = { showDetails = false; detailProduct = null }
+                    )
                 }
             }
         }
@@ -228,15 +252,18 @@ private fun CatalogItemCard(
     product: Product,
     green: Color,
     panel: Color,
-    onAdd: () -> Unit
+    onAdd: () -> Unit,
+    onOpenDetails: () -> Unit // ✅ NUEVO
 ) {
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = panel),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenDetails() } // ✅ NUEVO
     ) {
         Column {
-            // Imagen con degradado inferior
+            // Imagen
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -268,15 +295,10 @@ private fun CatalogItemCard(
                 Text(
                     product.name,
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(Modifier.height(2.dp))
-                Text(
-                    product.material,
-                    color = Color.White.copy(alpha = 0.85f),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(product.material, color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(8.dp))
 
                 Row(
@@ -284,17 +306,14 @@ private fun CatalogItemCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val priceLabel = "$ ${"%,d".format(product.priceClp)}"
                     Text(
-                        priceLabel,
+                        "$ ${"%,d".format(product.priceClp)}",
                         color = Color.White,
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    // ---- Botón redondo SOLO con carrito; se vuelve verde claro 2s ----
                     var pressed by rememberSaveable(product.id) { mutableStateOf(false) }
                     val lightGreen = Color(0xFF2FD03B)
-
                     val bg by animateColorAsState(
                         targetValue = if (pressed) lightGreen else green,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
@@ -303,7 +322,7 @@ private fun CatalogItemCard(
 
                     LaunchedEffect(pressed) {
                         if (pressed) {
-                            delay(2000) // ~2 segundos
+                            delay(2000)
                             pressed = false
                         }
                     }
@@ -321,16 +340,74 @@ private fun CatalogItemCard(
                             contentColor = Color.White
                         ),
                         contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier.size(42.dp) // tamaño compacto, sin texto
+                        modifier = Modifier.size(42.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.AddShoppingCart,
-                            contentDescription = "Agregar al carrito",
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Filled.AddShoppingCart, contentDescription = null, modifier = Modifier.size(20.dp))
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProductDetailSheet(
+    product: Product,
+    onAdd: (Int) -> Unit,
+    onClose: () -> Unit
+) {
+    var qty by remember { mutableStateOf(1) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(product.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
+            TextButton(onClick = onClose) { Text("Cerrar") }
+        }
+
+        if (product.imageRes != null) {
+            Image(
+                painter = painterResource(id = product.imageRes),
+                contentDescription = product.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(16.dp))
+            )
+        }
+
+        Text("Material: ${product.material}", style = MaterialTheme.typography.bodyMedium)
+        product.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+
+        Text(
+            "$ ${"%,d".format(product.priceClp)}",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { if (qty > 1) qty-- }) { Text("−") }
+            Text(qty.toString(), style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = { qty++ }) { Text("+") }
+        }
+
+        Button(onClick = { onAdd(qty) }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.AddShoppingCart, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Añadir al carrito")
+        }
+
+        Spacer(Modifier.height(8.dp))
     }
 }
