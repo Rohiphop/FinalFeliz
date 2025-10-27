@@ -9,6 +9,11 @@ class UserRepository(
     private val session: SessionManager
 ) {
 
+    // Default para cumplir contrato no-nulo del teléfono
+    private companion object {
+        private const val DEFAULT_PHONE = "+56900000000"
+    }
+
     // ==============================
     // Normalizadores / helpers
     // ==============================
@@ -28,13 +33,11 @@ class UserRepository(
     // ==============================
     // Sesión observable
     // ==============================
-    /** Flujo del usuario actual (null si no hay sesión). */
     val currentUserFlow: Flow<User?> =
         session.currentUserIdFlow.flatMapLatest { id ->
             if (id == null) flowOf(null) else dao.observeUser(id)
         }
 
-    /** Usuario actual una sola vez. */
     suspend fun getCurrentUserOnce(): User? {
         val id = session.getCurrentUserId() ?: return null
         return dao.findById(id)
@@ -49,9 +52,9 @@ class UserRepository(
         password: String,
         phone: String? = null
     ): Result<Long> {
-        val cleanEmail = normalizeEmail(email)
-        val displayName = cleanName(name)
-        val cleanPhone = phone?.let(::cleanPhone)
+        val cleanEmail   = normalizeEmail(email)
+        val displayName  = cleanName(name)
+        val normalizedPh = phone?.let(::cleanPhone)?.ifBlank { DEFAULT_PHONE } ?: DEFAULT_PHONE
 
         if (displayName.isBlank()) return Result.failure(IllegalArgumentException("El nombre no puede estar vacío"))
         if (cleanEmail.isBlank())  return Result.failure(IllegalArgumentException("El correo no puede estar vacío"))
@@ -64,9 +67,9 @@ class UserRepository(
             User(
                 name = displayName,
                 email = cleanEmail,
-                password = password, // demo: sin hash
+                password = password,   // (demo sin hash)
                 isAdmin = false,
-                phone = cleanPhone
+                phone = normalizedPh
             )
         )
 
@@ -94,8 +97,6 @@ class UserRepository(
     // ==============================
     // Perfil del usuario actual
     // ==============================
-
-    /** Actualiza solo el nombre del usuario actual. */
     suspend fun updateCurrentUserName(newName: String): Result<Unit> = runCatching {
         val id = currentUserIdOrFail()
         val clean = cleanName(newName)
@@ -103,10 +104,6 @@ class UserRepository(
         dao.updateName(id, clean)
     }
 
-    /**
-     * Cambia la contraseña del usuario actual.
-     * Valida la contraseña actual antes de aplicar el cambio.
-     */
     suspend fun changeCurrentUserPassword(
         currentPassword: String,
         newPassword: String
@@ -119,15 +116,12 @@ class UserRepository(
         if (user.password != currentPassword) {
             throw IllegalArgumentException("La contraseña actual no coincide")
         }
-        // Si más adelante aplicas hashing, haz la verificación y guardado con hash aquí.
         dao.updatePassword(id, newPassword)
     }
 
-    /** Actualiza el teléfono del usuario actual. Guarda siempre el número limpio (sin espacios). */
     suspend fun updateCurrentUserPhone(newPhone: String): Result<Unit> = runCatching {
         val id = currentUserIdOrFail()
-        val normalized = cleanPhone(newPhone)
-        // Validación mínima; ajusta a tu formato esperado
+        val normalized = cleanPhone(newPhone).ifBlank { DEFAULT_PHONE }
         require(normalized.length >= 8) { "Ingresa un teléfono válido" }
         val user = dao.findById(id) ?: error("Usuario no encontrado")
         dao.update(user.copy(phone = normalized))
@@ -140,17 +134,47 @@ class UserRepository(
 
     suspend fun getAllUsers(): List<User> = dao.getAllUsers()
 
-    suspend fun setAdmin(userId: Long, admin: Boolean) {
+    suspend fun setAdmin(userId: Long, admin: Boolean): Result<Unit> = runCatching {
         dao.setAdmin(userId, admin)
     }
 
     suspend fun findById(id: Long): User? = dao.findById(id)
 
-    /** Garantiza que el admin por defecto exista. */
     suspend fun ensureDefaultAdmin(
         email: String = "admin@finalfeliz.cl",
         password: String = "Admin123."
     ) {
         dao.ensureAdminExists(normalizeEmail(email), password)
+    }
+
+    // ==============================
+    // Admin: CRUD
+    // ==============================
+    suspend fun updateUser(user: User): Result<Unit> = runCatching {
+        val cleanEmail  = normalizeEmail(user.email)
+        val cleanName   = cleanName(user.name)
+        val cleanPhone  = cleanPhone(user.phone).ifBlank { DEFAULT_PHONE }
+
+        require(cleanName.isNotBlank())  { "El nombre no puede estar vacío" }
+        require(cleanEmail.isNotBlank()) { "El correo no puede estar vacío" }
+
+        // Evitar duplicado de email con otro usuario
+        val existing = dao.findByEmail(cleanEmail)
+        if (existing != null && existing.id != user.id) {
+            throw IllegalArgumentException("Ya existe un usuario con este correo")
+        }
+
+        dao.update(
+            user.copy(
+                name  = cleanName,
+                email = cleanEmail,
+                phone = cleanPhone
+            )
+        )
+    }
+
+    suspend fun deleteUser(id: Long): Result<Unit> = runCatching {
+        val user = dao.findById(id) ?: throw IllegalArgumentException("Usuario no encontrado")
+        dao.delete(user)
     }
 }
