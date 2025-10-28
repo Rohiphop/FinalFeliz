@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
                                 userName = displayName,
                                 isAdmin = state.isAdmin,
                                 onLogoutClick = {
+                                    cartVm.clear()
                                     userVm.logout()
                                     navController.navigate("welcome") {
                                         popUpTo("home") { inclusive = true }
@@ -139,6 +140,7 @@ class MainActivity : ComponentActivity() {
                                 productVm = productVm,
                                 onBack = { navController.popBackStack() },
                                 onLogout = {
+                                    cartVm.clear()
                                     userVm.logout()
                                     navController.navigate("welcome") {
                                         popUpTo("admin") { inclusive = true }
@@ -190,6 +192,7 @@ class MainActivity : ComponentActivity() {
                                 userEmail = state.userEmail ?: "—",
                                 onBack = { navController.popBackStack() },
                                 onLogout = {
+                                    cartVm.clear()
                                     userVm.logout()
                                     navController.navigate("welcome") {
                                         popUpTo("catalog") { inclusive = true }

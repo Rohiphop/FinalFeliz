@@ -224,7 +224,7 @@ fun CatalogScreen(
                 }
             }
 
-            // ✅ NUEVO: sheet de detalles
+            // detalles
             if (showDetails && detailProduct != null) {
                 val sheetState = rememberModalBottomSheetState()
                 ModalBottomSheet(
