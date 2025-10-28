@@ -129,7 +129,7 @@ fun CatalogScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .fillMaxSize()
             ) {
-                // --- Tarjeta usuario ---
+                // --- Tarjeta usuario --
                 ElevatedCard(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
