@@ -335,7 +335,7 @@ fun RegisterScreen(
 
                         Spacer(Modifier.height(18.dp))
 
-                        // Botón verde como el del perfil
+                        // Botón verde
                         Button(
                             onClick = {
                                 triedSubmit = true
